@@ -4,7 +4,6 @@
 // username of iLab:
 // iLab Server:
 
-
 #include "rpthread.h"
 
 // INITAILIZE ALL YOUR VARIABLES HERE
@@ -18,28 +17,35 @@ tcb *tail;
 // 	return tcb_queue;
 // }
 
+
+void context_test(void* param){
+    //print param
+    puts("went inside context_test");
+}
+
 int main()
 {
 
-	tcb *n1 = tcb_init(1);
-	enqueue(n1);
-	tcb *n2 = tcb_init(2);
-	enqueue(n2);
-	//dequeue();
-	tcb *n3 = tcb_init(3);
-	enqueue(n3);
-	printQueue();
-	return 0;
+    int i=0;
+    for(i;i<3;i++) {
+        int param = i;
+        pthread_t *thread = (pthread_t *) malloc(sizeof(pthread_t));
+        rpthread_create(&thread, NULL, &context_test, param);
+    }
+    printQueue();
+    dequeue();
+    printQueue();
+
 }
 
-tcb* tcb_init(int priority)
+tcb *tcb_init(ucontext_t* cctx,rpthread_t id)
 {
 	tcb *newNode = (tcb *)malloc(sizeof(tcb));
-	newNode->tid = NULL;
-	//status
-	newNode->t_context = NULL;
-	newNode->priority = priority;
-	newNode->stack = NULL;
+	newNode->tid = id;
+	//NEED TO SET STATUS
+	newNode->t_context =cctx;
+    newNode->priority = 0;//default val
+	//need stack?
 	newNode->next = NULL;
 	return newNode;
 }
@@ -60,7 +66,7 @@ void enqueue(tcb *tcb_node)
 }
 
 int getQueueSize()
-{
+{//not super good method since has to pass whole time to check size
 	tcb *curr = head;
 	int size = 0;
 	while (curr != NULL)
@@ -77,9 +83,10 @@ void printQueue()
 
 	while (curr != NULL)
 	{
-		printf("%d\t", curr->priority);
+		printf("%d\t", curr->tid);
 		curr = curr->next;
 	}
+    printf("\n");//new line
 }
 
 tcb *dequeue()
@@ -101,10 +108,19 @@ tcb *dequeue()
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 					void *(*function)(void *), void *arg)
 {
+    void *stack=malloc(STACK_SIZE);
+    ucontext_t * cctx= (ucontext_t*)malloc(sizeof(ucontext_t));
+    cctx->uc_link=NULL;//need to link this something?
+    cctx->uc_stack.ss_sp=stack;
+    cctx->uc_stack.ss_size=STACK_SIZE;
+    cctx->uc_stack.ss_flags=0;//dont know what this does
+
 	// Create Thread Control Block
+    tcb * tcbNode= tcb_init(cctx,*thread);
+    enqueue(tcbNode);
 	// Create and initialize the context of this thread
-	// Allocate space of stack for this thread to run
-	// after everything is all set, push this thread int
+	// Allocate space of stack for this thread to run (is this the cctx field or something else?)
+	// after everything is all set, push this thread int (push on queue what?)
 	// YOUR CODE HERE
 
 	return 0;

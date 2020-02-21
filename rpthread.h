@@ -11,7 +11,7 @@
 
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_RTHREAD macro */
 #define USE_RTHREAD 1
-
+#define STACK_SIZE SIGSTKSZ
 
 
 /* include lib header files that you need here: */
@@ -19,14 +19,20 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include "sys/ucontext.h"
+#include <errno.h>
+#include <signal.h>
+#include <time.h>
+#include <ucontext.h>
+#include <string.h>
+#include <sys/time.h>
 
 typedef enum
 {
-    READY,
-    SCHEDULED,
-    BLOCKED
+	READY,
+	SCHEDULED,
+	BLOCKED
 } status;
 
 typedef uint rpthread_t;
@@ -39,14 +45,13 @@ typedef struct threadControlBlock
 	//status t_status;
 	ucontext_t *t_context;
 	int priority;
-	void *stack;
+	//do i need a stack here or does context have it?
 	struct threadControlBlock *next; //make a linkedlist or queue out of this
 
 	// thread status
 	// thread context
 	// thread stack
 	// thread priority
-
 
 	// And more ...
 
@@ -101,14 +106,13 @@ int rpthread_mutex_unlock(rpthread_mutex_t *mutex);
 int rpthread_mutex_destroy(rpthread_mutex_t *mutex);
 
 //rahil functions
-tcb* tcb_init(int priority);
+tcb *tcb_init(ucontext_t* cctx,rpthread_t id);
 
 void enqueue(tcb *tcb_node);
 
 void printQueue();
 
 tcb *dequeue();
-
 
 #ifdef USE_RTHREAD
 #define pthread_t rpthread_t
