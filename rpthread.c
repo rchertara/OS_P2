@@ -20,7 +20,7 @@ tcb *tail;
 
 void context_test(void* param){
     //print param
-    puts("went inside context_test");
+    printf("%d",param);
 }
 
 int main()
@@ -32,9 +32,8 @@ int main()
         pthread_t *thread = (pthread_t *) malloc(sizeof(pthread_t));
         rpthread_create(&thread, NULL, &context_test, param);
     }
-    printQueue();
-    dequeue();
-    printQueue();
+    //printQueue();
+
 
 }
 
@@ -110,13 +109,16 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 {
     void *stack=malloc(STACK_SIZE);
     ucontext_t * cctx= (ucontext_t*)malloc(sizeof(ucontext_t));
-    cctx->uc_link=NULL;//need to link this something?
+    cctx->uc_link=0;//need to link this something?
     cctx->uc_stack.ss_sp=stack;
     cctx->uc_stack.ss_size=STACK_SIZE;
     cctx->uc_stack.ss_flags=0;//dont know what this does
 
 	// Create Thread Control Block
     tcb * tcbNode= tcb_init(cctx,*thread);
+    //do i call get context before make context?
+    makecontext(cctx , (void*)&function,1,arg);
+    setcontext(cctx);
     enqueue(tcbNode);
 	// Create and initialize the context of this thread
 	// Allocate space of stack for this thread to run (is this the cctx field or something else?)
