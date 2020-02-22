@@ -9,7 +9,7 @@
 // INITAILIZE ALL YOUR VARIABLES HERE
 tcb *head;
 tcb *tail;
-ucontext_t curr_cctx;
+ucontext_t* curr_cctx;
 
 
 // queue *queue_init()
@@ -32,7 +32,9 @@ int main()
         pthread_t *thread = (pthread_t *) malloc(sizeof(pthread_t));
         rpthread_create(thread, NULL, &context_test, param);
     }
-
+    //curr_cctx=head->t_context; idk if i need to do this
+    setcontext(head->t_context);
+    rpthread_yield();
 }
 
 
@@ -142,6 +144,12 @@ int rpthread_yield()
 	// Change thread state from Running to Ready
 	// Save context of this thread to its thread control block
 	// switch from thread context to scheduler context
+    tcb* oldHeadNode= dequeue();
+    getcontext(oldHeadNode->t_context);
+    enqueue(oldHeadNode);
+
+    swapcontext(head->t_context,oldHeadNode->t_context);
+
 
 	// YOUR CODE HERE
 	return 0;
