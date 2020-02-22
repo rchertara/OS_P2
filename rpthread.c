@@ -9,6 +9,7 @@
 // INITAILIZE ALL YOUR VARIABLES HERE
 tcb *head;
 tcb *tail;
+ucontext_t curr_cctx;
 
 
 // queue *queue_init()
@@ -18,8 +19,7 @@ tcb *tail;
 // }
 
 
-void context_test(void* param){
-    //print param
+void context_test(int param){
     printf("%d",param);
 }
 
@@ -28,14 +28,16 @@ int main()
 
     int i=0;
     for(i;i<3;i++) {
-        int param = i;
+        void* param = i;
         pthread_t *thread = (pthread_t *) malloc(sizeof(pthread_t));
-        rpthread_create(&thread, NULL, &context_test, param);
+        rpthread_create(thread, NULL, &context_test, param);
     }
-    //printQueue();
-
 
 }
+
+
+
+
 
 tcb *tcb_init(ucontext_t* cctx,rpthread_t id)
 {
@@ -109,16 +111,21 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 {
     void *stack=malloc(STACK_SIZE);
     ucontext_t * cctx= (ucontext_t*)malloc(sizeof(ucontext_t));
-    cctx->uc_link=0;//need to link this something?
+    cctx->uc_link=NULL;//need to link this something?
     cctx->uc_stack.ss_sp=stack;
     cctx->uc_stack.ss_size=STACK_SIZE;
     cctx->uc_stack.ss_flags=0;//dont know what this does
 
 	// Create Thread Control Block
-    tcb * tcbNode= tcb_init(cctx,*thread);
+
+
+    if (getcontext(cctx) < 0){
+        perror("getcontext");
+        exit(1);
+    }
     //do i call get context before make context?
-    makecontext(cctx , (void*)&function,1,arg);
-    setcontext(cctx);
+    makecontext(cctx ,(void *) function,1,arg);
+    tcb * tcbNode= tcb_init(cctx,*thread);
     enqueue(tcbNode);
 	// Create and initialize the context of this thread
 	// Allocate space of stack for this thread to run (is this the cctx field or something else?)
