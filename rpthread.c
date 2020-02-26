@@ -9,7 +9,8 @@
 // INITAILIZE ALL YOUR VARIABLES HERE
 tcb *head;
 tcb *tail;
-ucontext_t* curr_cctx;
+
+ucontext_t* curr_cctx , uctx_sched;
 
 
 // queue *queue_init()
@@ -17,6 +18,32 @@ ucontext_t* curr_cctx;
 // 	queue *tcb_queue = (queue *)malloc(sizeof(queue));
 // 	return tcb_queue;
 // }
+
+void create_scheduler_context(){
+
+	/*create stack and check if memory allocation good*/
+	void *stack_sched = malloc(STACK_SIZE)
+	if (stack_sched== NULL)	{
+		perror("Failed to allocate stack");
+		exit(1);
+	}
+	// use getcontext to avoid segfault
+	if (getcontext(&uctx_sched) < 0){
+		perror("getcontext");
+		exit(1);
+	}
+
+	// set the necessary values 
+	uctx_sched.uc_stack.ss_sp = stack_sched;
+	uctx_sched.uc_stack.ss_size = STACK_SIZE;
+	uctx_sched.uc_stack.ss_flags = 0; 
+	uctx_sched.uc_link  = NULL;
+
+	// make the context for future use 
+	makecontext(&uctx_sched, (void *)&schedule,0);
+}
+
+
 
 
 void context_test(int param){
@@ -144,11 +171,26 @@ int rpthread_yield()
 	// Change thread state from Running to Ready
 	// Save context of this thread to its thread control block
 	// switch from thread context to scheduler context
+	/*
+	1. Update some struct value (READY)
+	2. Run getcontext on current context
+	3. stop timer
+	4. switch to scheduler function (i.e. the thread that handles scheduling)
+	*/
+
+	//MAKE SURE NOT WORKING WITH EMPTY LL
+	if( head != NULL){
     tcb* oldHeadNode= dequeue();
     getcontext(oldHeadNode->t_context);
-    enqueue(oldHeadNode);
+	
+	/* put the recently used thread back int othe queue  */
+	enqueue(oldHeadNode);
 
-    swapcontext(head->t_context,oldHeadNode->t_context);
+	/* Save old thread context, then switch to head */
+	setcontext(&uctx_sched);
+	// schedule(); //
+	}
+    
 
 
 	// YOUR CODE HERE
