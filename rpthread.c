@@ -9,7 +9,7 @@
 // INITAILIZE ALL YOUR VARIABLES HERE
 tcb *head;
 tcb *tail;
-
+boolean first_time_creating = TRUE; 
 ucontext_t* curr_cctx , uctx_sched;
 
 
@@ -149,6 +149,23 @@ tcb *dequeue()
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 					void *(*function)(void *), void *arg)
 {
+	if (first_time_creating)
+	{
+		first_time_creating = FALSE; // make sure never run again
+		getcontext(&uctx_main);
+		void *stack_main  = malloc (STACK_SIZE);
+		if(stack_main== NULL){
+			perror("Could not allocate stack for main");
+			exit(1);
+		}
+		uctx_main.uc_stack.ss_sp = stack_main;
+		uctx_main.uc_stack.ss_size = STACK_SIZE;
+		uctx_main.uc_stack.ss_flags = 0; 
+		uctx_main.uc_link  = NULL;
+
+		// ! makecontext (&uctx_main, linktoexit )
+	}
+	
     void *stack=malloc(STACK_SIZE);
     ucontext_t * cctx= (ucontext_t*)malloc(sizeof(ucontext_t));
     cctx->uc_link=NULL;//need to link this something?

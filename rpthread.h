@@ -40,9 +40,9 @@ typedef enum
 	BLOCKED,
 	TERMINATED
 } status;
-
+typedef enum{FALSE, TRUE}boolean;
 typedef uint rpthread_t;
-
+static ucontext_t uctx_main;
 typedef struct threadControlBlock
 {
 	/* add important states in a thread control block */
