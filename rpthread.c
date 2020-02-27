@@ -22,7 +22,7 @@ ucontext_t* curr_cctx , uctx_sched;
 void create_scheduler_context(){
 
 	/*create stack and check if memory allocation good*/
-	void *stack_sched = malloc(STACK_SIZE)
+	void *stack_sched = malloc(STACK_SIZE);
 	if (stack_sched== NULL)	{
 		perror("Failed to allocate stack");
 		exit(1);
@@ -53,15 +53,7 @@ void context_test(int param){
 int main()
 {
 
-    int i=0;
-    for(i;i<3;i++) {
-        void* param = i;
-        pthread_t *thread = (pthread_t *) malloc(sizeof(pthread_t));
-        rpthread_create(thread, NULL, &context_test, param);
-    }
-    //curr_cctx=head->t_context; idk if i need to do this
-    setcontext(head->t_context);
-    rpthread_yield();
+	return 0;
 }
 
 
@@ -117,6 +109,25 @@ void printQueue()
 		curr = curr->next;
 	}
     printf("\n");//new line
+}
+tcb* find_tid(rpthread_t goal) // type 'uint'
+{
+	tcb *curr = head;
+	if(head == NULL){
+		return NULL;
+	}
+	
+	while (curr != NULL)
+	{
+		if(curr->tid == goal )
+		{
+			return curr;
+		}
+		curr = curr->next;
+	}
+
+	// did NOT find node, but still return 
+	return NULL;
 }
 
 tcb *dequeue()
@@ -281,23 +292,30 @@ static void schedule()
 #endif
 }
 
-/* Preemptive SJF (STCF) scheduling algorithm */
-static void sched_stcf()
-{
-	// Your own implementation of STCF
-	// (feel free to modify arguments and return types)
+// * UNDELETE THIS STUFF LATER ! 
+// /*  Preemptive SJF (STCF) scheduling algorithm */
+// static void sched_stcf()
+// {
+// 	// Your own implementation of STCF
+// 	// (feel free to modify arguments and return types)
 
-	// YOUR CODE HERE
-}
+// 	// YOUR CODE HERE
+// 	return;  // ! delete later
+// }
 
-/* Preemptive MLFQ scheduling algorithm */
-static void sched_mlfq()
-{
-	// Your own implementation of MLFQ
-	// (feel free to modify arguments and return types)
 
-	// YOUR CODE HERE
-}
+// /* Preemptive MLFQ scheduling algorithm */
+// static void sched_mlfq()
+// {
+// 	// Your own implementation of MLFQ
+// 	// (feel free to modify arguments and return types)
+
+// 	// YOUR CODE HERE
+// 	return;  // ! delete later
+// }
+
+
+
 
 // Feel free to add any other functions you need
 

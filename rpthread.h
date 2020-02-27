@@ -30,9 +30,15 @@
 
 typedef enum
 {
-	READY,
+	/*A RUNNING thread is the thread that is currently executing on a processor. 
+	The RUNNING thread is selected from the list of Ready threads for that processor, 
+	which are threads that are good to be swapped in to execute
+	*/
+	READY, 
 	SCHEDULED,
-	BLOCKED
+	RUNNING,
+	BLOCKED,
+	TERMINATED
 } status;
 
 typedef uint rpthread_t;
@@ -44,6 +50,7 @@ typedef struct threadControlBlock
 	rpthread_t tid;
 	//status t_status;
 	ucontext_t *t_context;
+	status thread_status;
 	int priority;
 	//do i need a stack here or does context have it?
 	struct threadControlBlock *next; //make a linkedlist or queue out of this
@@ -80,6 +87,9 @@ typedef struct rpthread_mutex_t
 
 /* Function Declarations: */
 
+
+
+
 /* create a new thread */
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr, void *(*function)(void *), void *arg);
 
@@ -108,11 +118,17 @@ int rpthread_mutex_destroy(rpthread_mutex_t *mutex);
 //rahil functions
 tcb *tcb_init(ucontext_t* cctx,rpthread_t id);
 
+/* scheduler */
+static void schedule();
+
 void enqueue(tcb *tcb_node);
 
 void printQueue();
 
 tcb *dequeue();
+
+/* Create scheduler context*/
+void create_scheduler_context();
 
 #ifdef USE_RTHREAD
 #define pthread_t rpthread_t
