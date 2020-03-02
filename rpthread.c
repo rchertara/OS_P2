@@ -7,8 +7,9 @@
 #include "rpthread.h"
 
 // INITAILIZE ALL YOUR VARIABLES HERE
-tcb *head;
-tcb *tail;
+tcb *head , tail;
+head = tail = NULL;
+
 boolean first_time_creating = TRUE; 
 ucontext_t* curr_cctx , uctx_sched;
 
@@ -146,13 +147,33 @@ tcb *dequeue()
 }
 
 /* create a new thread */
+/*
+if queue empty then do the following =>
+create a context for main(TCB) and schedule (global context)
+call schedule inside of here 
+
+-------------------------------------
+normal functions
+create desired thread
+
+//start the timer, 
+//signal handler is yield
+//  if someting is blocked, avoid using it, then enqueue it till have a ready thread 
+//don't set the context return function to pthread exit
+
+*/
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 					void *(*function)(void *), void *arg)
 {
 	if (first_time_creating)
 	{
 		first_time_creating = FALSE; // make sure never run again
-		getcontext(&uctx_main);
+		if (getcontext(&uctx_main) < 0){// save context of main
+		perror("getcontext");
+		exit(1);
+	}
+		// allocate memory for the main stack just in case
+
 		void *stack_main  = malloc (STACK_SIZE);
 		if(stack_main== NULL){
 			perror("Could not allocate stack for main");
@@ -161,15 +182,16 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 		uctx_main.uc_stack.ss_sp = stack_main;
 		uctx_main.uc_stack.ss_size = STACK_SIZE;
 		uctx_main.uc_stack.ss_flags = 0; 
-		uctx_main.uc_link  = NULL;
-
+		uctx_main.uc_link  = NULL;  // this points to the function it
+		makecontext(&)
 		// ! makecontext (&uctx_main, linktoexit )
+		// TODO SHD
 	}
 	
-    void *stack=malloc(STACK_SIZE);
+    void *thread_stack = malloc(STACK_SIZE);
     ucontext_t * cctx= (ucontext_t*)malloc(sizeof(ucontext_t));
     cctx->uc_link=NULL;//need to link this something?
-    cctx->uc_stack.ss_sp=stack;
+    cctx->uc_stack.ss_sp=thread_stack;
     cctx->uc_stack.ss_size=STACK_SIZE;
     cctx->uc_stack.ss_flags=0;//dont know what this does
 
@@ -193,13 +215,14 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 };
 
 /* give CPU possession to other user-level threads voluntarily */
+// timer reset and signal handler function
 int rpthread_yield()
 {
 
 	// Change thread state from Running to Ready
 	// Save context of this thread to its thread control block
 	// switch from thread context to scheduler context
-	/*
+	/* 
 	1. Update some struct value (READY)
 	2. Run getcontext on current context
 	3. stop timer
@@ -207,25 +230,15 @@ int rpthread_yield()
 	*/
 
 	//MAKE SURE NOT WORKING WITH EMPTY LL
-	if( head != NULL){
-    tcb* oldHeadNode= dequeue();
-    getcontext(oldHeadNode->t_context);
-	
-	/* put the recently used thread back int othe queue  */
-	enqueue(oldHeadNode);
+	struct itimerval timer;
+	getitimer(ITIMER_PROF, &timer, NULL)
+	timer.it_value.tv
 
-	/* Save old thread context, then switch to head */
-	setcontext(&uctx_sched);
-	// schedule(); //
-	}
-    
-
-
-	// YOUR CODE HERE
 	return 0;
 };
 
 /* terminate a thread */
+//
 void rpthread_exit(void *value_ptr){
 	// Deallocated any dynamic memory created when starting this thread
 
@@ -233,6 +246,7 @@ void rpthread_exit(void *value_ptr){
 };
 
 /* Wait for thread termination */
+// inside of tcb keep a list of all threads waiting to join  
 int rpthread_join(rpthread_t thread, void **value_ptr)
 {
 
@@ -285,6 +299,8 @@ int rpthread_mutex_destroy(rpthread_mutex_t *mutex)
 };
 
 /* scheduler */
+// no need to add paramters; just use global variables 
+//remove terminated item from tcb
 static void schedule()
 {
 	// Every time when timer interrup happens, your thread library
