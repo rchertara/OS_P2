@@ -232,7 +232,9 @@ int rpthread_yield()
 	//MAKE SURE NOT WORKING WITH EMPTY LL
 	struct itimerval timer;
 	getitimer(ITIMER_PROF, &timer, NULL)
-	timer.it_value.tv
+	timer.it_value.tv_usec = 0; // stop the timer
+	setitimer(ITIMER_PROF, &timer, NULL);
+	swapcontext( &curr_cctx, &uctx_sched ) // save current context, and then switch to scheduler 
 
 	return 0;
 };
