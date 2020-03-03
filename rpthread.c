@@ -6,50 +6,21 @@
 
 #include "rpthread.h"
 
-// INITAILIZE ALL YOUR VARIABLES HERE
-tcb *head , tail;
-head = tail = NULL;
-
-boolean first_time_creating = TRUE; 
-ucontext_t* curr_cctx , uctx_sched;
+/* INITAILIZE ALL YOUR VARIABLES HERE*/
 
 
-// queue *queue_init()
-// {
-// 	queue *tcb_queue = (queue *)malloc(sizeof(queue));
-// 	return tcb_queue;
-// }
+// tcb *head , *tail; //  > might not be able to create global head and tail
+// .*head = *tail = NULL;
 
-void create_scheduler_context(){
+boolean first_time_creating = TRUE; // variable used to check if pthread_create has ever been run before
+ucontext_t * uctx_current , * uctx_sched; // current thread context; scheduler context
 
-	/*create stack and check if memory allocation good*/
-	void *stack_sched = malloc(STACK_SIZE);
-	if (stack_sched== NULL)	{
-		perror("Failed to allocate stack");
-		exit(1);
-	}
-	// use getcontext to avoid segfault
-	if (getcontext(&uctx_sched) < 0){
-		perror("getcontext");
-		exit(1);
-	}
+ML_queue * thread_queue; // queue of all threads 
+struct itimerval time;
 
-	// set the necessary values 
-	uctx_sched.uc_stack.ss_sp = stack_sched;
-	uctx_sched.uc_stack.ss_size = STACK_SIZE;
-	uctx_sched.uc_stack.ss_flags = 0; 
-	uctx_sched.uc_link  = NULL;
-
-	// make the context for future use 
-	makecontext(&uctx_sched, (void *)&schedule,0);
-}
+/* END OF GLOBAL VARIABLE INIT*/
 
 
-
-
-void context_test(int param){
-    printf("%d",param);
-}
 
 int main()
 {
@@ -59,99 +30,12 @@ int main()
 
 
 
-
-
-tcb *tcb_init(ucontext_t* cctx,rpthread_t id)
-{
-	tcb *newNode = (tcb *)malloc(sizeof(tcb));
-	newNode->tid = id;
-	//NEED TO SET STATUS
-	newNode->t_context =cctx;
-    newNode->priority = 0;//default val
-	//need stack?
-	newNode->next = NULL;
-	return newNode;
-}
-// YOUR CODE HERE
-
-void enqueue(tcb *tcb_node)
-{
-	if (head == NULL)
-	{
-		head = tcb_node;
-		tail = tcb_node;
-	}
-	else
-	{
-		tail->next = tcb_node;
-		tail = tcb_node;
-	}
-}
-
-int getQueueSize()
-{//not super good method since has to pass whole time to check size
-	tcb *curr = head;
-	int size = 0;
-	while (curr != NULL)
-	{
-		size++;
-		curr = curr->next;
-	}
-	return size;
-}
-
-void printQueue()
-{
-	tcb *curr = head;
-
-	while (curr != NULL)
-	{
-		printf("%d\t", curr->tid);
-		curr = curr->next;
-	}
-    printf("\n");//new line
-}
-tcb* find_tid(rpthread_t goal) // type 'uint'
-{
-	tcb *curr = head;
-	if(head == NULL){
-		return NULL;
-	}
-	
-	while (curr != NULL)
-	{
-		if(curr->tid == goal )
-		{
-			return curr;
-		}
-		curr = curr->next;
-	}
-
-	// did NOT find node, but still return 
-	return NULL;
-}
-
-tcb *dequeue()
-{
-	if (getQueueSize() != 0)
-	{
-		tcb *first = head;
-		head = head->next;
-		return first;
-	}
-	else
-	{
-		puts("cant dequeue from empty Q");
-		return NULL;
-	}
-}
-
 /* create a new thread */
 /*
 if queue empty then do the following =>
 create a context for main(TCB) and schedule (global context)
 call schedule inside of here 
-
+create timer here aswell
 -------------------------------------
 normal functions
 create desired thread
@@ -165,52 +49,67 @@ create desired thread
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 					void *(*function)(void *), void *arg)
 {
-	if (first_time_creating)
-	{
+	/* Since first time calling then we need to save "main" to tcb block*/
+	// ! REMEMBER TO ADD CURRENT TO QUEUE FOR THE FIRST TIME CAUSE IT CONTAINS MAIN
+	if (first_time_creating){
 		first_time_creating = FALSE; // make sure never run again
-		if (getcontext(&uctx_main) < 0){// save context of main
-		perror("getcontext");
-		exit(1);
-	}
-		// allocate memory for the main stack just in case
+	
+		thread_queue = (ML_queue*) malloc(sizeof(ML_queue));
+		thread_queue-> head = NULL;
+		thread_queue-> tail = NULL;
+		
 
-		void *stack_main  = malloc (STACK_SIZE);
-		if(stack_main== NULL){
-			perror("Could not allocate stack for main");
-			exit(1);
-		}
-		uctx_main.uc_stack.ss_sp = stack_main;
-		uctx_main.uc_stack.ss_size = STACK_SIZE;
-		uctx_main.uc_stack.ss_flags = 0; 
-		uctx_main.uc_link  = NULL;  // this points to the function it
-		makecontext(&)
-		// ! makecontext (&uctx_main, linktoexit )
-		// TODO SHD
+		//since first time running, we can assume called from main
+		create_tcb_main();
+		//create scheduler context, but do not make it a tcb block
+		create_scheduler_context();
+		//create timer 
+		init_timer();
+
+		// ! DO NOT ENQUEUE main b/c when call scheduler, you will enqueue current context there, which is main
 	}
 	
+
+	//Establish the new thread 
     void *thread_stack = malloc(STACK_SIZE);
-    ucontext_t * cctx= (ucontext_t*)malloc(sizeof(ucontext_t));
-    cctx->uc_link=NULL;//need to link this something?
-    cctx->uc_stack.ss_sp=thread_stack;
-    cctx->uc_stack.ss_size=STACK_SIZE;
-    cctx->uc_stack.ss_flags=0;//dont know what this does
+	if (thread_stack == NULL ){
+		perror("Failed to allocate stack: Pthread_create(thread_stack)");
+		exit(1);
+	}
+    ucontext_t * uctx_new_thread= (ucontext_t*)malloc(sizeof(ucontext_t));
+    uctx_new_thread->uc_link=NULL;//need to link this something? do not point this to the exit function because the exit function might run twice -DAVID
+    uctx_new_thread->uc_stack.ss_sp=thread_stack;
+    uctx_new_thread->uc_stack.ss_size=STACK_SIZE;
+    uctx_new_thread->uc_stack.ss_flags=0;//dont know what this does
 
-	// Create Thread Control Block
-
-
-    if (getcontext(cctx) < 0){
-        perror("getcontext");
+	// check if getcontext fails
+    if (getcontext(uctx_new_thread) < 0){
+        perror("getcontext:failure in pthread_create(uctx_new_thread)");
         exit(1);
     }
-    //do i call get context before make context?
-    makecontext(cctx ,(void *) function,1,arg);
-    tcb * tcbNode= tcb_init(cctx,*thread);
-    enqueue(tcbNode);
-	// Create and initialize the context of this thread
-	// Allocate space of stack for this thread to run (is this the cctx field or something else?)
-	// after everything is all set, push this thread int (push on queue what?)
-	// YOUR CODE HERE
 
+	// makeconext, based on args
+	if(arg){ // arguments passed
+		makecontext(uctx_new_thread,(void*)function,1,arg);		
+	}
+	else{  // no args given 
+		makecontext(uctx_new_thread,(void*)function,0);
+	}
+
+	// ! ALOT MISSING FROM TCB BLOCK, REVISE LATER
+	// TODO REVISE 
+	tcb * tcb_newthread = (tcb*)malloc(sizeof(tcb)); 
+	tcb_newthread->tid = 0;
+	tcb_newthread->thread_status = READY;
+	tcb_newthread->priority = 0;
+	tcb_newthread->t_context = uctx_new_thread;
+
+	//! ENQUEUE THIS tcb_newthread
+
+	/* switch to the scheduler */
+	scheduler();
+
+	
 	return 0;
 };
 
@@ -231,10 +130,10 @@ int rpthread_yield()
 
 	//MAKE SURE NOT WORKING WITH EMPTY LL
 	struct itimerval timer;
-	getitimer(ITIMER_PROF, &timer, NULL)
+	getitimer(ITIMER_PROF, &timer);
 	timer.it_value.tv_usec = 0; // stop the timer
 	setitimer(ITIMER_PROF, &timer, NULL);
-	swapcontext( &curr_cctx, &uctx_sched ) // save current context, and then switch to scheduler 
+	swapcontext(uctx_current, uctx_sched ); // save current context, and then switch to scheduler 
 
 	return 0;
 };
@@ -354,4 +253,169 @@ static void schedule()
 
 // Feel free to add any other functions you need
 
-// YOUR CODE HERE
+
+
+
+
+
+// ! YOUR CODE HERE !
+
+
+void create_scheduler_context(){
+
+	
+	ucontext_t * uctx_sched= (ucontext_t*)malloc(sizeof(ucontext_t));
+
+	/*create stack and check if memory allocation good*/
+	void *stack_sched = malloc(STACK_SIZE);
+
+	if (stack_sched == NULL)	{
+		perror("Failed to allocate stack");
+		exit(1);
+	}
+	// use getcontext to avoid segfault
+	if (getcontext(uctx_sched) < 0){
+		perror("getcontext");
+		exit(1);
+	}
+
+	// set the necessary values 
+	uctx_sched->uc_stack.ss_sp = stack_sched;
+	uctx_sched->uc_stack.ss_size = STACK_SIZE;
+	uctx_sched->uc_stack.ss_flags = 0; 
+	uctx_sched->uc_link  = NULL; // it will switch to that context, but since null will exit 
+
+	// make the context for future use 
+	makecontext(uctx_sched, (void *)&schedule,0);
+}
+
+
+
+void create_tcb_main(){
+	tcb * tcb_main = (tcb*)malloc(sizeof(tcb)); 
+	tcb_main->tid = 0;
+	tcb_main->thread_status = RUNNING;
+	tcb_main->priority = 0;
+
+	/*Creating the threadControlBlock(tcb)  */
+	ucontext_t *uctx_main = (ucontext_t*)malloc(sizeof(ucontext_t));
+
+	// save context of main
+	if (getcontext(uctx_main) < 0){
+		perror("getcontext: create_tcb_main");
+		exit(1);
+	}
+	uctx_current = uctx_main; // make current context point to main
+
+
+	tcb_main->t_context = uctx_main;
+}
+
+void init_timer(){
+	memset(&timer, 0 , sizeof(time));
+	time.it_value.tv_usec = 0;
+	time.it_value.tv_sec = 0;
+    time.it_interval.tv_usec = 0; 
+    time.it_interval.tv_sec = 0;
+	setitimer(ITIMER_PROF, &rpthread_yield, NULL);
+}
+
+
+
+// void context_test(int param){
+//     printf("%d",param);
+// }
+
+
+
+// void create_queue(){
+// 	int x;
+// 	for(x=0;x<MAXLEVELS;x++){
+
+// 	}
+// }
+
+// tcb *tcb_init(ucontext_t* cctx,rpthread_t id)
+// {
+// 	tcb *newNode = (tcb *)malloc(sizeof(tcb));
+// 	newNode->tid = id;
+// 	//NEED TO SET STATUS
+// 	newNode->t_context =cctx;
+//     newNode->priority = 0;//default val
+// 	//need stack?
+// 	newNode->next = NULL;
+// 	return newNode;
+// }
+// // YOUR CODE HERE
+
+// void enqueue(tcb *tcb_node)
+// {
+// 	if (head == NULL)
+// 	{
+// 		head = tcb_node;
+// 		tail = tcb_node;
+// 	}
+// 	else
+// 	{
+// 		tail->next = tcb_node;
+// 		tail = tcb_node;
+// 	}
+// }
+
+// int getQueueSize()
+// {//not super good method since has to pass whole time to check size
+// 	tcb *curr = head;
+// 	int size = 0;
+// 	while (curr != NULL)
+// 	{
+// 		size++;
+// 		curr = curr->next;
+// 	}
+// 	return size;
+// }
+
+// void printQueue()
+// {
+// 	tcb *curr = head;
+
+// 	while (curr != NULL)
+// 	{
+// 		printf("%d\t", curr->tid);
+// 		curr = curr->next;
+// 	}
+//     printf("\n");//new line
+// }
+// tcb* find_tid(rpthread_t goal) // type 'uint'
+// {
+// 	tcb *curr = head;
+// 	if(head == NULL){
+// 		return NULL;
+// 	}
+	
+// 	while (curr != NULL)
+// 	{
+// 		if(curr->tid == goal )
+// 		{
+// 			return curr;
+// 		}
+// 		curr = curr->next;
+// 	}
+
+// 	// did NOT find node, but still return 
+// 	return NULL;
+// }
+
+// tcb *dequeue()
+// {
+// 	if (getQueueSize() != 0)
+// 	{
+// 		tcb *first = head;
+// 		head = head->next;
+// 		return first;
+// 	}
+// 	else
+// 	{
+// 		puts("cant dequeue from empty Q");
+// 		return NULL;
+// 	}
+// }

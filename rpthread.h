@@ -12,7 +12,11 @@
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_RTHREAD macro */
 #define USE_RTHREAD 1
 #define STACK_SIZE SIGSTKSZ
-
+#define MAXLEVELS 4
+#define L1 1000
+#define L2 2000
+#define L3 3000
+#define L4 4000
 
 /* include lib header files that you need here: */
 #include <unistd.h>
@@ -40,37 +44,11 @@ typedef enum
 	BLOCKED,
 	TERMINATED
 } status;
-typedef enum{FALSE, TRUE}boolean;
+
+typedef enum{FALSE,TRUE}boolean;
 typedef uint rpthread_t;
-static ucontext_t uctx_main;
-typedef struct threadControlBlock
-{
-	/* add important states in a thread control block */
-	// thread Id
-	rpthread_t tid;
-	//status t_status;
-	ucontext_t *t_context;
-	status thread_status;
-	int priority;
-	//do i need a stack here or does context have it?
-	struct threadControlBlock *next; //make a linkedlist or queue out of this
 
-	// thread status
-	// thread context
-	// thread stack
-	// thread priority
 
-	// And more ...
-
-	// YOUR CODE HERE
-} tcb;
-
-// typedef struct Queue
-// {
-// 	tcb *front;
-// 	tcb *end;
-
-// } queue;
 
 /* mutex struct definition */
 typedef struct rpthread_mutex_t
@@ -80,10 +58,45 @@ typedef struct rpthread_mutex_t
 	// YOUR CODE HERE
 } rpthread_mutex_t;
 
+
+
+
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
 // YOUR CODE HERE
+
+
+
+typedef struct threadControlBlock
+{
+	/* add important states in a thread control block */
+	// thread Id
+	rpthread_t tid;
+	//status t_status;
+	ucontext_t *t_context;
+	status thread_status;
+	int priority;
+	
+	struct threadControlBlock *next; //make a linkedlist or queue out of this
+	// ? do i need a stack here or does context have it?
+	// thread status
+	// thread context
+	// thread stack
+	// thread priority
+
+	// And more ...
+
+	// YOUR CODE HERE
+}tcb;
+
+typedef struct MLQ{
+	
+	tcb *head;
+	tcb *tail;
+}ML_queue;
+
+
 
 /* Function Declarations: */
 
@@ -115,20 +128,29 @@ int rpthread_mutex_unlock(rpthread_mutex_t *mutex);
 /* destroy the mutex */
 int rpthread_mutex_destroy(rpthread_mutex_t *mutex);
 
-//rahil functions
-tcb *tcb_init(ucontext_t* cctx,rpthread_t id);
-
 /* scheduler */
 static void schedule();
 
+
+
+
+//CREATED FUNCTIONS
+void create_scheduler_context();
+void context_test(int param);
+void create_queue();
+tcb *tcb_init(ucontext_t* cctx,rpthread_t id);
 void enqueue(tcb *tcb_node);
-
+int getQueueSize();
 void printQueue();
-
+tcb* find_tid(rpthread_t goal);
 tcb *dequeue();
+void create_tcb_main();
+
+
+
+
 
 /* Create scheduler context*/
-void create_scheduler_context();
 
 #ifdef USE_RTHREAD
 #define pthread_t rpthread_t

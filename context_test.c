@@ -19,9 +19,9 @@ execution every 1 second.
 
 
 #define STACK_SIZE SIGSTKSZ
-static ucontext_t uctx_foo, uctx_bar , uctx_main;
+static ucontext_t *uctx_foo, *uctx_bar , uctx_main;
 static volatile sig_atomic_t switch_context = 0;
-struct itimerval timer;
+
 void foo(){
 
 	while(1){
@@ -30,7 +30,8 @@ void foo(){
 		 {
 		 	printf("foo_if\n");
 		 	switch_context = 0;
-		 	swapcontext(&uctx_foo,&uctx_bar);
+		 	swapcontext(uctx_foo,uctx_bar);
+			 printf("broke here foo\n");
 		 } 
 		// sleep(3);
 	}
@@ -42,14 +43,17 @@ void bar(){
 		if (switch_context)
 		 {
 		 	printf("bar_if\n");
+			struct itimerval local;
+			getitimer(ITIMER_PROF, &local);
+			memset(&local, 0 , sizeof(local));
 		 	switch_context = 0;
-               timer.it_value.tv_usec = 0;
-            timer.it_value.tv_sec = 0;
-             timer.it_interval.tv_usec = 0; 
-             timer.it_interval.tv_sec = 0;
-             setitimer(ITIMER_PROF, &timer, NULL);
-		 	swapcontext(&uctx_bar,&uctx_foo);
-       
+            local.it_value.tv_usec = 0;
+            local.it_value.tv_sec = 0;
+            local.it_interval.tv_usec = 0; 
+            local.it_interval.tv_sec = 0;
+            setitimer(ITIMER_PROF, &local, NULL);
+		 	// swapcontext(uctx_bar,uctx_foo);cle
+			exit(0);
   
 		 } 
 	
@@ -64,7 +68,7 @@ switch_context = 1;
 }
 int main(int argc, char **argv) {
 	
-	
+	struct itimerval timer;
 	if (argc != 1) {
 		printf(": USAGE Program Name and no Arguments expected\n");
 		exit(1);
@@ -77,27 +81,27 @@ int main(int argc, char **argv) {
 		perror("Failed to allocate stack");
 		exit(1);
 	}
-	
-	if (getcontext(&uctx_foo) < 0){
+	uctx_foo= (ucontext_t*)malloc(sizeof(ucontext_t));
+	if (getcontext(uctx_foo) < 0){
 		perror("getcontext");
 		exit(1);
 	}
-	uctx_foo.uc_stack.ss_sp = stack_foo;
-	uctx_foo.uc_stack.ss_size = STACK_SIZE;
-	uctx_foo.uc_stack.ss_flags = 0; 
-	uctx_foo.uc_link  = NULL;
-	makecontext(&uctx_foo, (void *)&foo, 0);
+	uctx_foo->uc_stack.ss_sp = stack_foo;
+	uctx_foo->uc_stack.ss_size = STACK_SIZE;
+	uctx_foo->uc_stack.ss_flags = 0; 
+	uctx_foo->uc_link  = NULL;
+	makecontext(uctx_foo, (void *)&foo, 0);
 
-
-	if (getcontext(&uctx_bar) < 0){
+	uctx_bar= (ucontext_t*)malloc(sizeof(ucontext_t));
+	if (getcontext(uctx_bar) < 0){
 		perror("getcontext");
 		exit(1);
 	}
-	uctx_bar.uc_stack.ss_sp = stack_bar;
-	uctx_bar.uc_stack.ss_size = STACK_SIZE;
-	uctx_bar.uc_stack.ss_flags = 0; 
-	uctx_bar.uc_link  = NULL;
-	makecontext(&uctx_bar, (void *)&bar,0);
+	uctx_bar->uc_stack.ss_sp = stack_bar;
+	uctx_bar->uc_stack.ss_size = STACK_SIZE;
+	uctx_bar->uc_stack.ss_flags = 0; 
+	uctx_bar->uc_link  = NULL;
+	makecontext(uctx_bar, (void *)&bar,0);
 
 	struct sigaction sa;
 	memset (&sa, 0, sizeof (sa));
@@ -117,7 +121,7 @@ int main(int argc, char **argv) {
 	setitimer(ITIMER_PROF, &timer, NULL);
 
 	// 
-	setcontext(&uctx_foo);
+	setcontext(uctx_foo);
 	// foo();
 	// while(1);
 	// while
