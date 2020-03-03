@@ -11,12 +11,8 @@ tcb *head;
 tcb *tail;
 ucontext_t* curr_cctx;
 
-
-// queue *queue_init()
-// {
-// 	queue *tcb_queue = (queue *)malloc(sizeof(queue));
-// 	return tcb_queue;
-// }
+tcb* mlq [4];
+int sctf_flag;
 
 
 void context_test(int param){
@@ -229,7 +225,16 @@ static void schedule()
 	// else if (sched == MLFQ)
 	// 		sched_mlfq();
 
-	// YOUR CODE HERE
+	while(1){// is the while loop calling the same sub rountine schedule func over and over?
+
+	    if(sctf_flag){
+	        sched_stcf();
+	    }
+	    else{
+	        sched_mlfq();
+	    }
+
+	}
 
 // schedule policy
 #ifndef MLFQ
@@ -244,6 +249,8 @@ static void sched_stcf()
 {
 	// Your own implementation of STCF
 	// (feel free to modify arguments and return types)
+
+
 
 	// YOUR CODE HERE
 }

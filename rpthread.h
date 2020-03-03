@@ -30,9 +30,10 @@
 
 typedef enum
 {
-	READY,
-	SCHEDULED,
-	BLOCKED
+	READY, //in q but not running yet
+	RUNNING,
+	BLOCKED, //waiting for threads to join
+	TERMINATED //has been exited
 } status;
 
 typedef uint rpthread_t;
@@ -42,20 +43,12 @@ typedef struct threadControlBlock
 	/* add important states in a thread control block */
 	// thread Id
 	rpthread_t tid;
-	//status t_status;
+	status t_status;
 	ucontext_t *t_context;
 	int priority;
-	//do i need a stack here or does context have it?
 	struct threadControlBlock *next; //make a linkedlist or queue out of this
 
-	// thread status
-	// thread context
-	// thread stack
-	// thread priority
-
-	// And more ...
-
-	// YOUR CODE HERE
+	rpthread_t join; //keep joining thread?
 } tcb;
 
 // typedef struct Queue
@@ -113,6 +106,12 @@ void enqueue(tcb *tcb_node);
 void printQueue();
 
 tcb *dequeue();
+
+
+static void sched_stcf();
+
+static void sched_mlfq();
+
 
 #ifdef USE_RTHREAD
 #define pthread_t rpthread_t
