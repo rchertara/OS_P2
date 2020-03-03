@@ -115,7 +115,7 @@ tcb *tcb_init(ucontext_t *cctx, rpthread_t id) {
 
 
 
-int getQueueSize() {//not super good method since has to pass whole time to check size
+int getQueueSize(tcb* head) {//not super good method since has to pass whole time to check size
     tcb *curr = head;
     int size = 0;
     while (curr != NULL) {
@@ -125,7 +125,7 @@ int getQueueSize() {//not super good method since has to pass whole time to chec
     return size;
 }
 
-void printQueue() {
+void printQueue(tcb* head) {
     tcb *curr = head;
 
     while (curr != NULL) {
@@ -136,14 +136,36 @@ void printQueue() {
 }
 
 tcb *dequeue() {
-    if (getQueueSize() != 0) {
-        tcb *first = head;
-        head = head->next;
-        return first;
-    } else {
-        puts("cant dequeue from empty Q");
-        return NULL;
+
+    if(sctf_flag){
+        head=ml_queue[0]->head;
+        if(getQueueSize(head)!=0){
+            tcb* first=head;
+            head=head->next;
+            return first;
+        }
+        else{
+            puts("cant dequeue from empty Q");
+            return NULL;
+        }
     }
+
+   else{//MLFQ
+       tcb * first;
+       int i=0;
+       for(i;i<LEVELS;i++){
+           mlq * curr_q=ml_queue[i];
+           if(curr_q->head!=NULL){
+               first=curr_q->head;
+               curr_q->head=curr_q->head->next;
+               return first;
+           }
+       }
+       puts("all levels are empty");
+       return NULL;
+
+
+   }
 }
 
 /* create a new thread */
