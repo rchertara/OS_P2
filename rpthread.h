@@ -12,6 +12,11 @@
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_RTHREAD macro */
 #define USE_RTHREAD 1
 #define STACK_SIZE SIGSTKSZ
+#define LEVELS 4
+#define L1 1000
+#define L2 2000
+#define L3 3000
+#define L4 4000
 
 
 /* include lib header files that you need here: */
@@ -46,17 +51,21 @@ typedef struct threadControlBlock
 	status t_status;
 	ucontext_t *t_context;
 	int priority;
+	int quantum;
 	struct threadControlBlock *next; //make a linkedlist or queue out of this
-
 	rpthread_t join; //keep joining thread?
 } tcb;
 
-// typedef struct Queue
-// {
-// 	tcb *front;
-// 	tcb *end;
+ typedef struct Queue
+ {
+ 	tcb *head;
+ 	tcb *tail;
 
-// } queue;
+ } mlq;
+
+
+
+
 
 /* mutex struct definition */
 typedef struct rpthread_mutex_t
