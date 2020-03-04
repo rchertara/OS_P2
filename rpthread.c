@@ -15,7 +15,7 @@
 boolean first_time_creating = TRUE; // variable used to check if pthread_create has ever been run before
 ucontext_t * uctx_current , * uctx_sched; // current thread context; scheduler context
 
-ML_queue * thread_queue; // queue of all threads 
+mlq * thread_queue; // queue of all threads 
 struct itimerval mytime;
 
 /* END OF GLOBAL VARIABLE INIT*/
@@ -39,12 +39,10 @@ create timer here aswell
 -------------------------------------
 normal functions
 create desired thread
-
 //start the timer, 
 //signal handler is yield
 //  if someting is blocked, avoid using it, then enqueue it till have a ready thread 
 //don't set the context return function to pthread exit
-
 */
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 					void *(*function)(void *), void *arg)
@@ -54,7 +52,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 	if (first_time_creating){
 		first_time_creating = FALSE; // make sure never run again
 	
-		thread_queue = (ML_queue*) malloc(sizeof(ML_queue));
+		thread_queue = (mlq*) malloc(sizeof(mlq));
 		thread_queue-> head = NULL;
 		thread_queue-> tail = NULL;
 		
@@ -100,121 +98,11 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 	// TODO REVISE 
 	tcb * tcb_newthread = (tcb*)malloc(sizeof(tcb)); 
 	tcb_newthread->tid = 0;
-	tcb_newthread->thread_status = READY;
+	tcb_newthread->t_status = READY;
 	tcb_newthread->priority = 0;
 	tcb_newthread->t_context = uctx_new_thread;
 
 	//! ENQUEUE THIS tcb_newthread
-void enqueue(tcb *tcb_node) {
-
-    if (sctf_flag) {
-        if (ml_queue[0]->head == NULL) {
-            ml_queue[0]->head = tcb_node;
-            ml_queue[0]->tail = tcb_node;
-        }
-        else {
-            ml_queue[0]->tail->next = tcb_node;
-            ml_queue[0]->tail = tcb_node;
-        }
-    }
-    else {//MLFQ algo
-        int quant = tcb_node->quantum;
-        int level=get_level(quant);
-
-        if(ml_queue[level]==NULL){
-            ml_queue[level]->head = tcb_node;
-            ml_queue[level]->tail = tcb_node;
-        }
-        else{
-            ml_queue[level]->tail->next = tcb_node;
-            ml_queue[level]->tail = tcb_node;
-        }
-    }
-
-}
-
-
-
-
-
-tcb *tcb_init(ucontext_t *cctx, rpthread_t id) {
-    tcb *newNode = (tcb *) malloc(sizeof(tcb));
-    newNode->tid = id;
-    //NEED TO SET STATUS
-    newNode->t_context = cctx;
-    newNode->priority = 0;//default val
-    //need stack?
-    newNode->next = NULL;
-    return newNode;
-}
-// YOUR CODE HERE
-
-
-
-int getQueueSize(tcb* head) {//not super good method since has to pass whole time to check size
-    tcb *curr = head;
-    int size = 0;
-    while (curr != NULL) {
-        size++;
-        curr = curr->next;
-    }
-    return size;
-}
-
-void printQueue(tcb* head) {
-    tcb *curr = head;
-
-    while (curr != NULL) {
-        printf("%d\t", curr->tid);
-        curr = curr->next;
-    }
-    printf("\n");//new line
-}
-
-tcb *dequeue() {
-
-    if(sctf_flag){
-        head=ml_queue[0]->head;
-        if(getQueueSize(head)!=0){
-            tcb* first=head;
-            head=head->next;
-            return first;
-        }
-        else{
-            puts("cant dequeue from empty Q");
-            return NULL;
-        }
-    }
-
-   else{//MLFQ
-       tcb * first;
-       int i=0;
-       for(i;i<LEVELS;i++){
-           mlq * curr_q=ml_queue[i];
-           if(curr_q->head!=NULL){
-               first=curr_q->head;
-               curr_q->head=curr_q->head->next;
-               return first;
-           }
-       }
-       puts("all levels are empty");
-       return NULL;
-
-
-   }
-}
-
-/* create a new thread */
-int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
-                    void *(*function)(void *), void *arg) {
-    void *stack = malloc(STACK_SIZE);
-    ucontext_t *cctx = (ucontext_t *) malloc(sizeof(ucontext_t));
-    cctx->uc_link = NULL;//need to link this something?
-    cctx->uc_stack.ss_sp = stack;
-    cctx->uc_stack.ss_size = STACK_SIZE;
-    cctx->uc_stack.ss_flags = 0;//dont know what this does
-
-    // Create Thread Control Block
 
 	/* switch to the scheduler */
 	schedule();
@@ -222,6 +110,10 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 	
 	return 0;
 };
+
+
+
+
 
 /* give CPU possession to other user-level threads voluntarily */
 // timer reset and signal handler function
@@ -404,7 +296,7 @@ void create_scheduler_context(){
 void create_tcb_main(){
 	tcb * tcb_main = (tcb*)malloc(sizeof(tcb)); 
 	tcb_main->tid = 0;
-	tcb_main->thread_status = RUNNING;
+	tcb_main->t_status = RUNNING;
 	tcb_main->priority = 0;
 
 	/*Creating the threadControlBlock(tcb)  */
@@ -432,100 +324,135 @@ void init_timer(){
 
 
 
-// void context_test(int param){
-//     printf("%d",param);
-// }
+void enqueue(tcb *tcb_node) {
+
+    if (sctf_flag) {
+        if (ml_queue[0]->head == NULL) {
+            ml_queue[0]->head = tcb_node;
+            ml_queue[0]->tail = tcb_node;
+        }
+        else {
+            ml_queue[0]->tail->next = tcb_node;
+            ml_queue[0]->tail = tcb_node;
+        }
+    }
+    else {//MLFQ algo
+        int quant = tcb_node->quantum;
+        int level=get_level(quant);
+
+        if(ml_queue[level]==NULL){
+            ml_queue[level]->head = tcb_node;
+            ml_queue[level]->tail = tcb_node;
+        }
+        else{
+            ml_queue[level]->tail->next = tcb_node;
+            ml_queue[level]->tail = tcb_node;
+        }
+    }
+
+}
 
 
 
-// void create_queue(){
-// 	int x;
-// 	for(x=0;x<MAXLEVELS;x++){
 
-// 	}
-// }
 
-// tcb *tcb_init(ucontext_t* cctx,rpthread_t id)
-// {
-// 	tcb *newNode = (tcb *)malloc(sizeof(tcb));
-// 	newNode->tid = id;
-// 	//NEED TO SET STATUS
-// 	newNode->t_context =cctx;
-//     newNode->priority = 0;//default val
-// 	//need stack?
-// 	newNode->next = NULL;
-// 	return newNode;
-// }
-// // YOUR CODE HERE
+tcb *tcb_init(ucontext_t *cctx, rpthread_t id) {
+    tcb *newNode = (tcb *) malloc(sizeof(tcb));
+    newNode->tid = id;
+    //NEED TO SET STATUS
+    newNode->t_context = cctx;
+    newNode->priority = 0;//default val
+    //need stack?
+    newNode->next = NULL;
+    return newNode;
+}
+// YOUR CODE HERE
 
-// void enqueue(tcb *tcb_node)
-// {
-// 	if (head == NULL)
-// 	{
-// 		head = tcb_node;
-// 		tail = tcb_node;
-// 	}
-// 	else
-// 	{
-// 		tail->next = tcb_node;
-// 		tail = tcb_node;
-// 	}
-// }
 
-// int getQueueSize()
-// {//not super good method since has to pass whole time to check size
-// 	tcb *curr = head;
-// 	int size = 0;
-// 	while (curr != NULL)
-// 	{
-// 		size++;
-// 		curr = curr->next;
-// 	}
-// 	return size;
-// }
 
-// void printQueue()
-// {
-// 	tcb *curr = head;
+int getQueueSize(tcb* head) {//not super good method since has to pass whole time to check size
+    tcb *curr = head;
+    int size = 0;
+    while (curr != NULL) {
+        size++;
+        curr = curr->next;
+    }
+    return size;
+}
 
-// 	while (curr != NULL)
-// 	{
-// 		printf("%d\t", curr->tid);
-// 		curr = curr->next;
-// 	}
-//     printf("\n");//new line
-// }
-// tcb* find_tid(rpthread_t goal) // type 'uint'
-// {
-// 	tcb *curr = head;
-// 	if(head == NULL){
-// 		return NULL;
-// 	}
-	
-// 	while (curr != NULL)
-// 	{
-// 		if(curr->tid == goal )
-// 		{
-// 			return curr;
-// 		}
-// 		curr = curr->next;
-// 	}
+void printQueue(tcb* head) {
+    tcb *curr = head;
 
-// 	// did NOT find node, but still return 
-// 	return NULL;
-// }
+    while (curr != NULL) {
+        printf("%d\t", curr->tid);
+        curr = curr->next;
+    }
+    printf("\n");//new line
+}
 
-// tcb *dequeue()
-// {
-// 	if (getQueueSize() != 0)
-// 	{
-// 		tcb *first = head;
-// 		head = head->next;
-// 		return first;
-// 	}
-// 	else
-// 	{
-// 		puts("cant dequeue from empty Q");
-// 		return NULL;
-// 	}
-// }
+tcb *dequeue() {
+
+    if(sctf_flag){
+        head=ml_queue[0]->head;
+        if(getQueueSize(head)!=0){
+            tcb* first=head;
+            head=head->next;
+            return first;
+        }
+        else{
+            puts("cant dequeue from empty Q");
+            return NULL;
+        }
+    }
+
+   else{//MLFQ
+       tcb * first;
+       int i=0;
+       for(i;i<LEVELS;i++){
+           mlq * curr_q=ml_queue[i];
+           if(curr_q->head!=NULL){
+               first=curr_q->head;
+               curr_q->head=curr_q->head->next;
+               return first;
+           }
+       }
+       puts("all levels are empty");
+       return NULL;
+
+
+   }
+}
+
+void ml_queue_init() {
+
+    if (sctf_flag == 0) {
+        int i = 0;
+        for (i; i < LEVELS; i++) {
+            ml_queue[i] = (mlq *) malloc(sizeof(mlq));
+            ml_queue[i]->head = NULL;
+            ml_queue[i]->tail = NULL;
+            i++;
+        }
+    } else {
+        ml_queue[0] = (mlq *) malloc(sizeof(mlq));
+        ml_queue[0]->head = NULL;
+        ml_queue[0]->tail = NULL;
+        //rest indexes should be null but will need to check
+    }
+}
+
+
+int get_level(int quant){
+    if(quant<=L1){
+        return 0;
+    }
+    else if(quant>L1 && quant<=L2){
+        return 1;
+    }
+    else if (quant>L2 && quant<=L3){
+        return 2;
+    }
+    else{//L4
+        return 3;
+    }
+}

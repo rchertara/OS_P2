@@ -76,26 +76,18 @@ typedef struct threadControlBlock
 	rpthread_t tid;
 	status t_status;
 	ucontext_t *t_context;
-	status thread_status;
 	int priority;
-	
+	int quantum;
 	struct threadControlBlock *next; //make a linkedlist or queue out of this
-	// ? do i need a stack here or does context have it?
-	// thread status
-	// thread context
-	// thread stack
-	// thread priority
+	rpthread_t join; //keep joining thread?
+} tcb;
 
-	// And more ...
+ typedef struct Queue
+ {
+ 	tcb *head;
+ 	tcb *tail;
 
-	// YOUR CODE HERE
-}tcb;
-
-typedef struct MLQ{
-	
-	tcb *head;
-	tcb *tail;
-}ML_queue;
+ } mlq;
 
 
 
@@ -136,20 +128,18 @@ static void schedule();
 
 
 //CREATED FUNCTIONS
+
 void create_scheduler_context();
-void context_test(int param);
-void create_queue();
-tcb *tcb_init(ucontext_t* cctx,rpthread_t id);
-void enqueue(tcb *tcb_node);
-int getQueueSize();
-void printQueue();
-tcb* find_tid(rpthread_t goal);
-tcb *dequeue();
 void create_tcb_main();
 void init_timer();
-
-
-
+tcb* find_tid(rpthread_t goal);
+void enqueue(tcb *tcb_node);
+tcb *tcb_init(ucontext_t *cctx, rpthread_t id);
+int getQueueSize();
+void printQueue();
+tcb *dequeue();
+void ml_queue_init();
+int get_level(int quant);
 
 /* Create scheduler context*/
 
