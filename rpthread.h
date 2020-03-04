@@ -12,8 +12,6 @@
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_RTHREAD macro */
 #define USE_RTHREAD 1
 #define STACK_SIZE SIGSTKSZ
-
-
 #define MAXLEVELS 4
 #define L1 1000
 #define L2 2000
@@ -36,11 +34,11 @@
 
 typedef enum
 {
-	/*A RUNNING thread is the thread that is currently executing on a processor.
-	The RUNNING thread is selected from the list of Ready threads for that processor,
+	/*A RUNNING thread is the thread that is currently executing on a processor. 
+	The RUNNING thread is selected from the list of Ready threads for that processor, 
 	which are threads that are good to be swapped in to execute
 	*/
-	READY,
+	READY, 
 	SCHEDULED,
 	RUNNING,
 	BLOCKED,
@@ -49,6 +47,26 @@ typedef enum
 
 typedef enum{FALSE,TRUE}boolean;
 typedef uint rpthread_t;
+
+
+
+/* mutex struct definition */
+typedef struct rpthread_mutex_t
+{
+	/* add something here */
+
+	// YOUR CODE HERE
+} rpthread_mutex_t;
+
+
+
+
+/* define your data structures here: */
+// Feel free to add your own auxiliary data structures (linked list or queue etc...)
+
+// YOUR CODE HERE
+
+
 
 typedef struct threadControlBlock
 {
@@ -59,31 +77,31 @@ typedef struct threadControlBlock
 	ucontext_t *t_context;
 	status thread_status;
 	int priority;
-	int quantum;
+	
 	struct threadControlBlock *next; //make a linkedlist or queue out of this
-	rpthread_t join; //keep joining thread?
-} tcb;
+	// ? do i need a stack here or does context have it?
+	// thread status
+	// thread context
+	// thread stack
+	// thread priority
+
+	// And more ...
+
+	// YOUR CODE HERE
+}tcb;
 
 typedef struct MLQ{
-
+	
 	tcb *head;
 	tcb *tail;
 }ML_queue;
 
-/* mutex struct definition */
-typedef struct rpthread_mutex_t
-{
-	/* add something here */
 
-	// YOUR CODE HERE
-} rpthread_mutex_t;
-
-/* define your data structures here: */
-// Feel free to add your own auxiliary data structures (linked list or queue etc...)
-
-// YOUR CODE HERE
 
 /* Function Declarations: */
+
+
+
 
 /* create a new thread */
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr, void *(*function)(void *), void *arg);
@@ -121,7 +139,6 @@ void create_scheduler_context();
 void context_test(int param);
 void create_queue();
 tcb *tcb_init(ucontext_t* cctx,rpthread_t id);
-
 void enqueue(tcb *tcb_node);
 int getQueueSize();
 void printQueue();
@@ -134,12 +151,6 @@ void create_tcb_main();
 
 
 /* Create scheduler context*/
-
-
-static void sched_stcf();
-
-static void sched_mlfq();
-
 
 #ifdef USE_RTHREAD
 #define pthread_t rpthread_t
