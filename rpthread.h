@@ -11,7 +11,12 @@
 
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_RTHREAD macro */
 #define USE_RTHREAD 1
-
+#define STACK_SIZE SIGSTKSZ
+#define LEVELS 4
+#define L1 1000
+#define L2 2000
+#define L3 3000
+#define L4 4000
 
 
 /* include lib header files that you need here: */
@@ -19,46 +24,32 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include "sys/ucontext.h"
+#include <errno.h>
+#include <signal.h>
+#include <time.h>
+#include <ucontext.h>
+#include <string.h>
+#include <sys/time.h>
 
 typedef enum
 {
-    READY,
-    SCHEDULED,
-    BLOCKED
+	/*A RUNNING thread is the thread that is currently executing on a processor. 
+	The RUNNING thread is selected from the list of Ready threads for that processor, 
+	which are threads that are good to be swapped in to execute
+	*/
+	READY, 
+	SCHEDULED,
+	RUNNING,
+	BLOCKED,
+	TERMINATED
 } status;
 
+typedef enum{FALSE,TRUE}boolean;
 typedef uint rpthread_t;
 
-typedef struct threadControlBlock
-{
-	/* add important states in a thread control block */
-	// thread Id
-	rpthread_t tid;
-	//status t_status;
-	ucontext_t *t_context;
-	int priority;
-	void *stack;
-	struct threadControlBlock *next; //make a linkedlist or queue out of this
 
-	// thread status
-	// thread context
-	// thread stack
-	// thread priority
-
-
-	// And more ...
-
-	// YOUR CODE HERE
-} tcb;
-
-// typedef struct Queue
-// {
-// 	tcb *front;
-// 	tcb *end;
-
-// } queue;
 
 /* mutex struct definition */
 typedef struct rpthread_mutex_t
@@ -68,12 +59,50 @@ typedef struct rpthread_mutex_t
 	// YOUR CODE HERE
 } rpthread_mutex_t;
 
+
+
+
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
 // YOUR CODE HERE
 
+
+
+typedef struct threadControlBlock
+{
+	/* add important states in a thread control block */
+	// thread Id
+	rpthread_t tid;
+	status t_status;
+	ucontext_t *t_context;
+	status thread_status;
+	int priority;
+	
+	struct threadControlBlock *next; //make a linkedlist or queue out of this
+	// ? do i need a stack here or does context have it?
+	// thread status
+	// thread context
+	// thread stack
+	// thread priority
+
+	// And more ...
+
+	// YOUR CODE HERE
+}tcb;
+
+typedef struct MLQ{
+	
+	tcb *head;
+	tcb *tail;
+}ML_queue;
+
+
+
 /* Function Declarations: */
+
+
+
 
 /* create a new thread */
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr, void *(*function)(void *), void *arg);
@@ -100,14 +129,34 @@ int rpthread_mutex_unlock(rpthread_mutex_t *mutex);
 /* destroy the mutex */
 int rpthread_mutex_destroy(rpthread_mutex_t *mutex);
 
-//rahil functions
-tcb* tcb_init(int priority);
+/* scheduler */
+static void schedule();
 
+
+
+
+//CREATED FUNCTIONS
+void create_scheduler_context();
+void context_test(int param);
+void create_queue();
+tcb *tcb_init(ucontext_t* cctx,rpthread_t id);
 void enqueue(tcb *tcb_node);
-
+int getQueueSize();
 void printQueue();
-
+tcb* find_tid(rpthread_t goal);
 tcb *dequeue();
+void create_tcb_main();
+void init_timer();
+
+
+
+
+/* Create scheduler context*/
+
+
+static void sched_stcf();
+
+static void sched_mlfq();
 
 
 #ifdef USE_RTHREAD
