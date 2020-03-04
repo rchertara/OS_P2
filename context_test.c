@@ -36,7 +36,7 @@ void foo(){
 		// sleep(3);
 	}
 }
-int bar(){
+void bar(){
 
 	while(1){
 		// printf("bar\n");
@@ -53,12 +53,11 @@ int bar(){
             local.it_interval.tv_sec = 0;
             setitimer(ITIMER_PROF, &local, NULL);
 		 	// swapcontext(uctx_bar,uctx_foo);cle
-			return 0;
+			exit(0);
   
 		 } 
 	
 	}
-	return 0;
 }
 
 void sig_func(){

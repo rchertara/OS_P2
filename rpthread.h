@@ -128,7 +128,7 @@ void printQueue();
 tcb* find_tid(rpthread_t goal);
 tcb *dequeue();
 void create_tcb_main();
-void init_timer();
+
 
 
 
