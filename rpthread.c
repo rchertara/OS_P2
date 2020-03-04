@@ -16,7 +16,7 @@ boolean first_time_creating = TRUE; // variable used to check if pthread_create 
 ucontext_t * uctx_current , * uctx_sched; // current thread context; scheduler context
 
 ML_queue * thread_queue; // queue of all threads 
-struct itimerval time;
+struct itimerval mytime;
 
 /* END OF GLOBAL VARIABLE INIT*/
 
@@ -107,7 +107,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 	//! ENQUEUE THIS tcb_newthread
 
 	/* switch to the scheduler */
-	scheduler();
+	schedule();
 
 	
 	return 0;
@@ -129,10 +129,9 @@ int rpthread_yield()
 	*/
 
 	//MAKE SURE NOT WORKING WITH EMPTY LL
-	struct itimerval timer;
-	getitimer(ITIMER_PROF, &timer);
-	timer.it_value.tv_usec = 0; // stop the timer
-	setitimer(ITIMER_PROF, &timer, NULL);
+	getitimer(ITIMER_PROF, &mytime);
+	mytime.it_value.tv_usec = 0; // stop the timer
+	setitimer(ITIMER_PROF, &mytime, NULL);
 	swapcontext(uctx_current, uctx_sched ); // save current context, and then switch to scheduler 
 
 	return 0;
@@ -312,12 +311,12 @@ void create_tcb_main(){
 }
 
 void init_timer(){
-	memset(&timer, 0 , sizeof(time));
-	time.it_value.tv_usec = 0;
-	time.it_value.tv_sec = 0;
-    time.it_interval.tv_usec = 0; 
-    time.it_interval.tv_sec = 0;
-	setitimer(ITIMER_PROF, &rpthread_yield, NULL);
+	memset(&mytime, 0 , sizeof(mytime));
+	mytime.it_value.tv_usec = 0;
+	mytime.it_value.tv_sec = 0;
+    mytime.it_interval.tv_usec = 0; 
+    mytime.it_interval.tv_sec = 0;
+	setitimer(ITIMER_PROF, &mytime, NULL); 
 }
 
 
