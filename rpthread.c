@@ -105,6 +105,116 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 	tcb_newthread->t_context = uctx_new_thread;
 
 	//! ENQUEUE THIS tcb_newthread
+void enqueue(tcb *tcb_node) {
+
+    if (sctf_flag) {
+        if (ml_queue[0]->head == NULL) {
+            ml_queue[0]->head = tcb_node;
+            ml_queue[0]->tail = tcb_node;
+        }
+        else {
+            ml_queue[0]->tail->next = tcb_node;
+            ml_queue[0]->tail = tcb_node;
+        }
+    }
+    else {//MLFQ algo
+        int quant = tcb_node->quantum;
+        int level=get_level(quant);
+
+        if(ml_queue[level]==NULL){
+            ml_queue[level]->head = tcb_node;
+            ml_queue[level]->tail = tcb_node;
+        }
+        else{
+            ml_queue[level]->tail->next = tcb_node;
+            ml_queue[level]->tail = tcb_node;
+        }
+    }
+
+}
+
+
+
+
+
+tcb *tcb_init(ucontext_t *cctx, rpthread_t id) {
+    tcb *newNode = (tcb *) malloc(sizeof(tcb));
+    newNode->tid = id;
+    //NEED TO SET STATUS
+    newNode->t_context = cctx;
+    newNode->priority = 0;//default val
+    //need stack?
+    newNode->next = NULL;
+    return newNode;
+}
+// YOUR CODE HERE
+
+
+
+int getQueueSize(tcb* head) {//not super good method since has to pass whole time to check size
+    tcb *curr = head;
+    int size = 0;
+    while (curr != NULL) {
+        size++;
+        curr = curr->next;
+    }
+    return size;
+}
+
+void printQueue(tcb* head) {
+    tcb *curr = head;
+
+    while (curr != NULL) {
+        printf("%d\t", curr->tid);
+        curr = curr->next;
+    }
+    printf("\n");//new line
+}
+
+tcb *dequeue() {
+
+    if(sctf_flag){
+        head=ml_queue[0]->head;
+        if(getQueueSize(head)!=0){
+            tcb* first=head;
+            head=head->next;
+            return first;
+        }
+        else{
+            puts("cant dequeue from empty Q");
+            return NULL;
+        }
+    }
+
+   else{//MLFQ
+       tcb * first;
+       int i=0;
+       for(i;i<LEVELS;i++){
+           mlq * curr_q=ml_queue[i];
+           if(curr_q->head!=NULL){
+               first=curr_q->head;
+               curr_q->head=curr_q->head->next;
+               return first;
+           }
+       }
+       puts("all levels are empty");
+       return NULL;
+
+
+   }
+}
+
+/* create a new thread */
+int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
+                    void *(*function)(void *), void *arg) {
+    void *stack = malloc(STACK_SIZE);
+    ucontext_t *cctx = (ucontext_t *) malloc(sizeof(ucontext_t));
+    cctx->uc_link = NULL;//need to link this something?
+    cctx->uc_stack.ss_sp = stack;
+    cctx->uc_stack.ss_size = STACK_SIZE;
+    cctx->uc_stack.ss_flags = 0;//dont know what this does
+
+    // Create Thread Control Block
 
 	/* switch to the scheduler */
 	schedule();
@@ -150,78 +260,79 @@ void rpthread_exit(void *value_ptr){
 int rpthread_join(rpthread_t thread, void **value_ptr)
 {
 
-	// Wait for a specific thread to terminate
-	// De-allocate any dynamic memory created by the joining thread
+    // Wait for a specific thread to terminate
+    // De-allocate any dynamic memory created by the joining thread
 
-	// YOUR CODE HERE
-	return 0;
+    // YOUR CODE HERE
+    return 0;
 };
 
 /* initialize the mutex lock */
 int rpthread_mutex_init(rpthread_mutex_t *mutex,
-						const pthread_mutexattr_t *mutexattr)
-{
-	//Initialize data structures for this mutex
+                        const pthread_mutexattr_t *mutexattr) {
+    //Initialize data structures for this mutex
 
-	// YOUR CODE HERE
-	return 0;
+    // YOUR CODE HERE
+    return 0;
 };
 
 /* aquire the mutex lock */
-int rpthread_mutex_lock(rpthread_mutex_t *mutex)
-{
-	// use the built-in test-and-set atomic function to test the mutex
-	// When the mutex is acquired successfully, enter the critical section
-	// If acquiring mutex fails, push current thread into block list and
-	// context switch to the scheduler thread
+int rpthread_mutex_lock(rpthread_mutex_t *mutex) {
+    // use the built-in test-and-set atomic function to test the mutex
+    // When the mutex is acquired successfully, enter the critical section
+    // If acquiring mutex fails, push current thread into block list and
+    // context switch to the scheduler thread
 
-	// YOUR CODE HERE
-	return 0;
+    // YOUR CODE HERE
+    return 0;
 };
 
 /* release the mutex lock */
-int rpthread_mutex_unlock(rpthread_mutex_t *mutex)
-{
-	// Release mutex and make it available again.
-	// Put threads in block list to run queue
-	// so that they could compete for mutex later.
+int rpthread_mutex_unlock(rpthread_mutex_t *mutex) {
+    // Release mutex and make it available again.
+    // Put threads in block list to run queue
+    // so that they could compete for mutex later.
 
-	// YOUR CODE HERE
-	return 0;
+    // YOUR CODE HERE
+    return 0;
 };
 
 /* destroy the mutex */
-int rpthread_mutex_destroy(rpthread_mutex_t *mutex)
-{
-	// Deallocate dynamic memory created in rpthread_mutex_init
+int rpthread_mutex_destroy(rpthread_mutex_t *mutex) {
+    // Deallocate dynamic memory created in rpthread_mutex_init
 
-	return 0;
+    return 0;
 };
 
 /* scheduler */
-// no need to add paramters; just use global variables 
-//remove terminated item from tcb
-static void schedule()
-{
-	// Every time when timer interrup happens, your thread library
-	// should be contexted switched from thread context to this
-	// schedule function
+static void schedule() {
+    // Every time when timer interrup happens, your thread library
+    // should be contexted switched from thread context to this
+    // schedule function
 
-	// Invoke different actual scheduling algorithms
-	// according to policy (STCF or MLFQ)
+    // Invoke different actual scheduling algorithms
+    // according to policy (STCF or MLFQ)
 
-	// if (sched == STCF)
-	//		sched_stcf();
-	// else if (sched == MLFQ)
-	// 		sched_mlfq();
+    // if (sched == STCF)
+    //		sched_stcf();
+    // else if (sched == MLFQ)
+    // 		sched_mlfq();
 
-	// YOUR CODE HERE
+    while (1) {// is the while loop calling the same sub rountine schedule func over and over?
+
+        if (sctf_flag) {
+            sched_stcf();
+        } else {
+            sched_mlfq();
+        }
+
+    }
 
 // schedule policy
 #ifndef MLFQ
-	// Choose STCF
+    // Choose STCF
 #else
-	// Choose MLFQ
+    // Choose MLFQ
 #endif
 }
 

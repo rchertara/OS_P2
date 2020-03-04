@@ -12,11 +12,12 @@
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_RTHREAD macro */
 #define USE_RTHREAD 1
 #define STACK_SIZE SIGSTKSZ
-#define MAXLEVELS 4
+#define LEVELS 4
 #define L1 1000
 #define L2 2000
 #define L3 3000
 #define L4 4000
+
 
 /* include lib header files that you need here: */
 #include <unistd.h>
@@ -73,7 +74,7 @@ typedef struct threadControlBlock
 	/* add important states in a thread control block */
 	// thread Id
 	rpthread_t tid;
-	//status t_status;
+	status t_status;
 	ucontext_t *t_context;
 	status thread_status;
 	int priority;
@@ -151,6 +152,12 @@ void init_timer();
 
 
 /* Create scheduler context*/
+
+
+static void sched_stcf();
+
+static void sched_mlfq();
+
 
 #ifdef USE_RTHREAD
 #define pthread_t rpthread_t
