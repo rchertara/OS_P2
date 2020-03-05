@@ -7,14 +7,14 @@
 #include "rpthread.h"
 
 /* INITAILIZE ALL YOUR VARIABLES HERE*/
-
+//main has tcb, then current thing we should make it a tcb, scheduler does not need a tcb just a global var
 // tcb *head , *tail; //  > might not be able to create global head and tail
 // .*head = *tail = NULL;
 
 boolean first_time_creating = TRUE;    // variable used to check if pthread_create has ever been run before
-ucontext_t *uctx_current, *uctx_sched; // current thread context; scheduler context
-
-mlq *ml_queue[4]; // queue of all threads
+ucontext_t *uctx_sched; // current thread context; scheduler context
+tcb* current_thread_tcb;//! julian you need to do something with this cap
+mlq *ml_queue[4];
 struct itimerval mytime;
 
 /* END OF GLOBAL VARIABLE INIT*/
@@ -123,10 +123,11 @@ int rpthread_yield()
 	*/
     //update TCB here
     //MAKE SURE NOT WORKING WITH EMPTY LL
+    current_thread_tcb->t_context=READY;
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
-    swapcontext(uctx_current, uctx_sched); // save current context, and then switch to scheduler
+    swapcontext(current_thread_tcb->t_context, uctx_sched); // save current context, and then switch to scheduler
 
     return 0;
 };
@@ -211,15 +212,11 @@ static void schedule()
     // Every time when timer interrup happens, your thread library
     // should be contexted switched from thread context to this
     // schedule function
+
     //go inside when thread finishes, timer goes off , or yield
 
     // Invoke different actual scheduling algorithms
     // according to policy (STCF or MLFQ)
-
-    // if (sched == STCF)
-    //		sched_stcf();
-    // else if (sched == MLFQ)
-    // 		sched_mlfq();
 
     while (1) //update tcb enq and deq you need while loop !!!
     {         // is the while loop calling the same sub rountine schedule func over and over?
@@ -234,12 +231,6 @@ static void schedule()
         }
     }
 
-// schedule policy
-#ifndef MLFQ
-    // Choose STCF
-#else
-    // Choose MLFQ
-#endif
 }
 
 // * UNDELETE THIS STUFF LATER !
@@ -256,15 +247,12 @@ static void sched_stcf()
     //stcf deq find the shortest one find smallest quantum by looping thru list
     //deq stcf keep track of min quantum and return that one dont do anything else
 
-    if (getQueueSize(ml_queue[0]->head) == 1)
-    {
-    }
-    else
-    {
-    }
 
-    // YOUR CODE HERE
-    return; // ! delete later
+        tcb * schedule_thread= dequeue();
+        schedule_thread->quantum++;
+        schedule_thread->t_status=RUNNING;
+        swapcontext(uctx_sched,schedule_thread->t_context);
+
 }
 
 // /* Preemptive MLFQ scheduling algorithm */
@@ -329,7 +317,7 @@ void create_tcb_main()
         perror("getcontext: create_tcb_main");
         exit(1);
     }
-    uctx_current = uctx_main; // make current context point to main
+    //uctx_current = uctx_main; // make current context point to main
 
     tcb_main->t_context = uctx_main;
 }
@@ -415,41 +403,55 @@ void printQueue(tcb *head)
     printf("\n"); //new line
 }
 
+
+
+tcb* get_shortestJob(tcb * head){
+    if(head==NULL){
+        puts("Nothing in this Queue");
+        return NULL;
+    }
+    tcb *curr = head;
+    tcb *shortest_job=NULL;
+    int min_quantum=INT64_MAX;
+
+    while(curr!=NULL){
+        if(curr->quantum < min_quantum){
+            min_quantum=curr->quantum;
+            shortest_job=curr;
+        }
+        curr=curr->next;
+    }
+    return shortest_job;
+}
+
+
 tcb *dequeue()
 {
 
     if (sctf_flag)
     {
-        head = ml_queue[0]->head;
-        if (getQueueSize(head) != 0)
-        {
-            tcb *first = head;
-            head = head->next;
-            return first;
-        }
-        else
-        {
-            puts("cant dequeue from empty Q");
-            return NULL;
-        }
+        tcb * shortest_job=get_shortestJob(ml_queue[0]->head);
+        //do i have to check its state for both algos to make sure i can use it???
+        return shortest_job;
     }
 
     else
     { //MLFQ
-        tcb *first;
         int i = 0;
         for (i; i < LEVELS; i++)
         {
             mlq *curr_q = ml_queue[i];
-            if (curr_q->head != NULL)
-            {
-                first = curr_q->head;
-                curr_q->head = curr_q->head->next;
-                return first;
+            tcb * shortest_job=get_shortestJob(curr_q->head);
+            if(shortest_job!=NULL){
+                return shortest_job;
+            }
+            else{
+                puts("Nothing on this Lvl");
             }
         }
-        puts("all levels are empty");
+
         return NULL;
+
     }
 }
 
