@@ -11,12 +11,15 @@
 // tcb *head , *tail; //  > might not be able to create global head and tail
 // .*head = *tail = NULL;
 
-boolean first_time_creating = TRUE;    // variable used to check if pthread_create has ever been run before
+boolean first_time_creating, sctf_flag ;    // variable used to check if pthread_create has ever been run before
+first_time_creating = TRUE; sctf_flag = FALSE; 
+
 ucontext_t *uctx_sched; // current thread context; scheduler context
 tcb* current_thread_tcb;//! julian you need to do something with this cap
-mlq *ml_queue[4];
-struct itimerval mytime;
+mlq *ml_queue[4] , *queue_waiting_to_join; // TODO allocate memory 
+struct itimerval mytime; // TODO allocate memory 
 
+exited_threads_LL * exited_threads; // TODO allocate memory 
 /* END OF GLOBAL VARIABLE INIT*/
 
 int main()
@@ -162,6 +165,48 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
     // De-allocate any dynamic memory created by the joining thread
 
     // YOUR CODE HERE
+
+    tcb *ptr_current = current_thread_tcb;
+    tcb * ptr_tcb = search_for_tid(thread);
+    
+    //DID NOT FIND THE THREAD IN THE MAIN QUEUE
+    if(ptr_tcb == NULL){
+        // ! FIGURE OUT DATA STRUCTURE FOR RETURN VALUES 
+        exited_threads_LL * ptr = exited_threads->head;
+        exited_threads_LL * prev = NULL;
+
+        while(ptr!=NULL){
+            if ( ptr->finished_thread->tid == thread ) break;
+            prev = ptr;
+            ptr = ptr->next;
+                
+        }
+
+        if(ptr == NULL ) return; // SOMEThiNG WENT WRONG AND nEVER FOUND
+
+        /* Handling the case of FIRST ELEMENT being joined and  ONLY ELEMENT*/
+        if(prev == NULL && ptr->next ==NULL){
+            *value_ptr = ptr->return_values;
+            free(ptr); 
+            return;
+        }
+        /* Handling the case of FIRST ELEMENT being joined and MORE ELEMENTs in LIST*/
+        if(prev == NULL ptr->next !=NULL ){
+            *value_ptr = ptr->return_values;
+            exited_threads->head = exited_threads->head->next; 
+            ptr->next = NULL; 
+            free(ptr); 
+            return; 
+        }
+        /* FINALLY: Handle the case where its some arbitrary NODE in the list*/
+        *value_ptr = ptr->return_values;
+        prev->next = ptr->next; 
+        ptr->next = NULL; 
+        free(ptr); 
+        return; 
+
+    }
+
     return 0;
 };
 
@@ -427,7 +472,7 @@ tcb* get_shortestJob(tcb * head){
 
 tcb *dequeue()
 {
-
+    // * FALSE == 0 , TRUE = anything other than 0, in this case 1 
     if (sctf_flag)
     {
         tcb * shortest_job=get_shortestJob(ml_queue[0]->head);
@@ -457,8 +502,8 @@ tcb *dequeue()
 
 void ml_queue_init()
 {
-
-    if (sctf_flag == 0)
+    // * FALSE == 0 , TRUE = anything other than 0, in this case 1 
+    if (sctf_flag )
     {
         int i = 0;
         for (i; i < LEVELS; i++)
@@ -496,4 +541,32 @@ int get_level(int quant)
     { //L4
         return 3;
     }
+}
+
+tcb * search_for_tid(rpthread_t goal_tid){
+    tcb * ptr_queue_head;
+    
+    if(sctf_flag){
+        ptr_queue_head = ml_queue[0]-> head;
+
+        while(ptr_queue_head!=NULL){
+            if(ptr_queue_head ->tid == goal_tid) return ptr_queue_head; // found goal_tid in queue 
+            ptr_queue_head = ptr_queue_head->next;
+        }
+    }
+    else{
+        int curr_level = 0;
+        while(curr_level < LEVELS){
+            ptr_queue_head = ml_queue[curr_level]-> head;
+               while(ptr_queue_head!=NULL){
+                    if(ptr_queue_head ->tid == goal_tid) return ptr_queue_head; // found goal_tid in queue 
+                    ptr_queue_head = ptr_queue_head->next;
+            }
+            // go to next level
+            curr_level++;
+        }
+    }
+
+    // Did not find goal_tid
+    return NULL;
 }

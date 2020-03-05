@@ -85,6 +85,14 @@ typedef struct Queue
 
 } mlq;
 
+typedef struct Terminated_Threads
+{
+	tcb *finished_thread;
+	void * return_values;
+	struct Terminated_Threads *next;
+
+}exited_threads_list;
+
 /* Function Declarations: */
 
 /* create a new thread */
