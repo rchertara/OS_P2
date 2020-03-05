@@ -18,7 +18,6 @@
 #define L3 3000
 #define L4 4000
 
-
 /* include lib header files that you need here: */
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -39,17 +38,19 @@ typedef enum
 	The RUNNING thread is selected from the list of Ready threads for that processor, 
 	which are threads that are good to be swapped in to execute
 	*/
-	READY, 
+	READY,
 	SCHEDULED,
 	RUNNING,
 	BLOCKED,
 	TERMINATED
 } status;
 
-typedef enum{FALSE,TRUE}boolean;
+typedef enum
+{
+	FALSE,
+	TRUE
+} boolean;
 typedef uint rpthread_t;
-
-
 
 /* mutex struct definition */
 typedef struct rpthread_mutex_t
@@ -59,15 +60,10 @@ typedef struct rpthread_mutex_t
 	// YOUR CODE HERE
 } rpthread_mutex_t;
 
-
-
-
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
 // YOUR CODE HERE
-
-
 
 typedef struct threadControlBlock
 {
@@ -79,22 +75,17 @@ typedef struct threadControlBlock
 	int priority;
 	int quantum;
 	struct threadControlBlock *next; //make a linkedlist or queue out of this
-	rpthread_t join; //keep joining thread?
+	rpthread_t join;				 //keep joining thread?
 } tcb;
 
- typedef struct Queue
- {
- 	tcb *head;
- 	tcb *tail;
+typedef struct Queue
+{
+	tcb *head;
+	tcb *tail;
 
- } mlq;
-
-
+} mlq;
 
 /* Function Declarations: */
-
-
-
 
 /* create a new thread */
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr, void *(*function)(void *), void *arg);
@@ -124,15 +115,12 @@ int rpthread_mutex_destroy(rpthread_mutex_t *mutex);
 /* scheduler */
 static void schedule();
 
-
-
-
 //CREATED FUNCTIONS
 
 void create_scheduler_context();
 void create_tcb_main();
 void init_timer();
-tcb* find_tid(rpthread_t goal);
+tcb *find_tid(rpthread_t goal);
 void enqueue(tcb *tcb_node);
 tcb *tcb_init(ucontext_t *cctx, rpthread_t id);
 int getQueueSize();
@@ -143,11 +131,9 @@ int get_level(int quant);
 
 /* Create scheduler context*/
 
-
 static void sched_stcf();
 
 static void sched_mlfq();
-
 
 #ifdef USE_RTHREAD
 #define pthread_t rpthread_t

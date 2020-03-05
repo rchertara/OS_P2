@@ -102,7 +102,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     enqueue(tcb_newthread);
 
     /* switch to the scheduler */
-    schedule();
+    schedule(); // idk if this is right
 
     return 0;
 };
@@ -121,7 +121,7 @@ int rpthread_yield()
 	3. stop timer
 	4. switch to scheduler function (i.e. the thread that handles scheduling)
 	*/
-
+    //update TCB here
     //MAKE SURE NOT WORKING WITH EMPTY LL
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
@@ -135,6 +135,15 @@ int rpthread_yield()
 //
 void rpthread_exit(void *value_ptr){
     // Deallocated any dynamic memory created when starting this thread
+    //we need to something to data structure
+    //set to terminated
+    //check any join threads
+    //for each thread
+    //set to ready
+    //get value ptr_ptr=value ptr
+
+    //add to finished/ wait queue
+    //swap to scheduler
 
     // YOUR CODE HERE
 };
@@ -143,6 +152,10 @@ void rpthread_exit(void *value_ptr){
 // inside of tcb keep a list of all threads waiting to join
 int rpthread_join(rpthread_t thread, void **value_ptr)
 {
+    //main calles join(1,)
+    //T1  has an int * b pointing to 2
+    //T1 will call exit and cast to (void*) b
+    // now main needs to get the void* b so it needs a ptr to a ptr
 
     // Wait for a specific thread to terminate
     // De-allocate any dynamic memory created by the joining thread
@@ -198,6 +211,7 @@ static void schedule()
     // Every time when timer interrup happens, your thread library
     // should be contexted switched from thread context to this
     // schedule function
+    //go inside when thread finishes, timer goes off , or yield
 
     // Invoke different actual scheduling algorithms
     // according to policy (STCF or MLFQ)
@@ -207,8 +221,8 @@ static void schedule()
     // else if (sched == MLFQ)
     // 		sched_mlfq();
 
-    while (1)
-    { // is the while loop calling the same sub rountine schedule func over and over?
+    while (1) //update tcb enq and deq you need while loop !!!
+    {         // is the while loop calling the same sub rountine schedule func over and over?
 
         if (sctf_flag)
         {
@@ -230,24 +244,39 @@ static void schedule()
 
 // * UNDELETE THIS STUFF LATER !
 // /*  Preemptive SJF (STCF) scheduling algorithm */
-// static void sched_stcf()
-// {
-// 	// Your own implementation of STCF
-// 	// (feel free to modify arguments and return types)
+static void sched_stcf()
+{
+    // Your own implementation of STCF
+    // (feel free to modify arguments and return types)
+    //change states update quantum
+    //call emqueue and dequence in some order that makes sense
+    //set contect next thread swap
 
-// 	// YOUR CODE HERE
-// 	return;  // ! delete later
-// }
+    //stfc enq increment time quantum put to the end of it LL
+    //stcf deq find the shortest one find smallest quantum by looping thru list
+    //deq stcf keep track of min quantum and return that one dont do anything else
+
+    if (getQueueSize(ml_queue[0]->head) == 1)
+    {
+    }
+    else
+    {
+    }
+
+    // YOUR CODE HERE
+    return; // ! delete later
+}
 
 // /* Preemptive MLFQ scheduling algorithm */
-// static void sched_mlfq()
-// {
-// 	// Your own implementation of MLFQ
-// 	// (feel free to modify arguments and return types)
+static void sched_mlfq()
+{
+    // Your own implementation of MLFQ
+    // (feel free to modify arguments and return types)
+    //update curr priority by decrementing it
 
-// 	// YOUR CODE HERE
-// 	return;  // ! delete later
-// }
+    // YOUR CODE HERE
+    return; // ! delete later
+}
 
 // Feel free to add any other functions you need
 
@@ -274,6 +303,7 @@ void create_scheduler_context()
     }
 
     // set the necessary values
+
     uctx_sched->uc_stack.ss_sp = stack_sched;
     uctx_sched->uc_stack.ss_size = STACK_SIZE;
     uctx_sched->uc_stack.ss_flags = 0;
