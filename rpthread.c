@@ -12,12 +12,15 @@
 // .*head = *tail = NULL;
 
 boolean first_time_creating, sctf_flag ;    // variable used to check if pthread_create has ever been run before
-first_time_creating = TRUE; sctf_flag = FALSE; 
+first_time_creating = TRUE; sctf_flag = FALSE;
+signal_handler_creation=TRUE;
+
 
 ucontext_t *uctx_sched; // current thread context; scheduler context
 tcb* current_thread_tcb;//! julian you need to do something with this cap
 mlq *ml_queue[4] , *queue_waiting_to_join; // TODO allocate memory 
-struct itimerval mytime; // TODO allocate memory 
+struct itimerval mytime; // TODO allocate memory
+struct sigaction sa;
 
 exited_threads_LL * exited_threads; // TODO allocate memory 
 /* END OF GLOBAL VARIABLE INIT*/
@@ -59,6 +62,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
         create_scheduler_context();
         //create timer
         init_timer();
+        //init sig handler here or in schedule
 
         // ! DO NOT ENQUEUE main b/c when call scheduler, you will enqueue current context there, which is main
     }
@@ -263,6 +267,14 @@ static void schedule()
     // Invoke different actual scheduling algorithms
     // according to policy (STCF or MLFQ)
 
+    if(signal_handler_creation){
+        signal_handler_creation=FALSE;
+        memset (&sa, 0, sizeof (sa));
+        sa.sa_handler = rpthread_yield;
+        sigaction (SIGPROF, &sa, NULL);
+    }
+
+
     while (1) //update tcb enq and deq you need while loop !!!
     {         // is the while loop calling the same sub rountine schedule func over and over?
 
@@ -296,6 +308,7 @@ static void sched_stcf()
         tcb * schedule_thread= dequeue();
         schedule_thread->quantum++;
         schedule_thread->t_status=RUNNING;
+        mytime.it_value.tv_sec=5;//restart timer
         swapcontext(uctx_sched,schedule_thread->t_context);
 
 }
@@ -306,7 +319,11 @@ static void sched_mlfq()
     // Your own implementation of MLFQ
     // (feel free to modify arguments and return types)
     //update curr priority by decrementing it
-
+    tcb * schedule_thread= dequeue();
+    schedule_thread->quantum++;
+    schedule_thread->t_status=RUNNING;
+    mytime.it_value.tv_sec=5;//restart timer
+    swapcontext(uctx_sched,schedule_thread->t_context);
     // YOUR CODE HERE
     return; // ! delete later
 }
@@ -371,7 +388,7 @@ void init_timer()
 {
     memset(&mytime, 0, sizeof(mytime));
     mytime.it_value.tv_usec = 0;
-    mytime.it_value.tv_sec = 0;
+    mytime.it_value.tv_sec = 5;//start timer
     mytime.it_interval.tv_usec = 0;
     mytime.it_interval.tv_sec = 0;
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -460,7 +477,7 @@ tcb* get_shortestJob(tcb * head){
     int min_quantum=INT64_MAX;
 
     while(curr!=NULL){
-        if(curr->quantum < min_quantum){
+        if( curr->quantum < min_quantum  && curr->t_context==READY){
             min_quantum=curr->quantum;
             shortest_job=curr;
         }
