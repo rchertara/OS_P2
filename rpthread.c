@@ -45,6 +45,12 @@ create desired thread
 //  if someting is blocked, avoid using it, then enqueue it till have a ready thread 
 //don't set the context return function to pthread exit
 */
+
+void set_currentThread_terminated(){
+    current_thread_tcb->t_status=TERMINATED;
+}
+
+
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
                     void *(*function)(void *), void *arg)
 {
@@ -75,7 +81,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
         exit(1);
     }
     ucontext_t *uctx_new_thread = (ucontext_t *)malloc(sizeof(ucontext_t));
-    uctx_new_thread->uc_link = NULL; //need to link this something? do not point this to the exit function because the exit function might run twice -DAVID
+    uctx_new_thread->uc_link = set_currentThread_terminated; //need to link this something? do not point this to the exit function because the exit function might run twice -DAVID
     uctx_new_thread->uc_stack.ss_sp = thread_stack;
     uctx_new_thread->uc_stack.ss_size = STACK_SIZE;
     uctx_new_thread->uc_stack.ss_flags = 0; //dont know what this does
@@ -103,6 +109,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     tcb_newthread->tid = 0;
     tcb_newthread->t_status = READY;
     tcb_newthread->priority = 0;
+    tcb_newthread->quantum=0;
     tcb_newthread->t_context = uctx_new_thread;
 
     //! ENQUEUE THIS tcb_newthread
@@ -308,7 +315,9 @@ static void sched_stcf()
         tcb * schedule_thread= dequeue();
         schedule_thread->quantum++;
         schedule_thread->t_status=RUNNING;
-        mytime.it_value.tv_sec=5;//restart timer
+        mytime.it_value.tv_sec=2;//restart timer
+        setitimer(ITIMER_PROF, &mytime, NULL);//is this correct?
+        current_thread_tcb=schedule_thread;
         swapcontext(uctx_sched,schedule_thread->t_context);
 
 }
@@ -322,7 +331,9 @@ static void sched_mlfq()
     tcb * schedule_thread= dequeue();
     schedule_thread->quantum++;
     schedule_thread->t_status=RUNNING;
-    mytime.it_value.tv_sec=5;//restart timer
+    mytime.it_value.tv_sec=2;//restart timer
+    setitimer(ITIMER_PROF, &mytime, NULL);// is this correct?
+    current_thread_tcb=schedule_thread;
     swapcontext(uctx_sched,schedule_thread->t_context);
     // YOUR CODE HERE
     return; // ! delete later
