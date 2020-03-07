@@ -124,7 +124,7 @@ int rpthread_mutex_destroy(rpthread_mutex_t *mutex);
 static void schedule();
 
 //CREATED FUNCTIONS
-
+tcb * search_for_tid(rpthread_t goal_tid);
 void create_scheduler_context();
 void create_tcb_main();
 void init_timer();

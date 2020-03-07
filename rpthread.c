@@ -11,8 +11,8 @@
 // tcb *head , *tail; //  > might not be able to create global head and tail
 // .*head = *tail = NULL;
 
-boolean first_time_creating, sctf_flag ;    // variable used to check if pthread_create has ever been run before
-first_time_creating = TRUE; sctf_flag = FALSE;
+boolean first_time_creating=TRUE;    // variable used to check if pthread_create has ever been run before
+boolean sctf_flag = FALSE;
 signal_handler_creation=TRUE;
 
 
@@ -22,7 +22,8 @@ mlq *ml_queue[4] , *queue_waiting_to_join; // TODO allocate memory
 struct itimerval mytime; // TODO allocate memory
 struct sigaction sa;
 
-exited_threads_LL * exited_threads; // TODO allocate memory 
+
+exited_threads_list * exited_threads; // TODO allocate memory
 /* END OF GLOBAL VARIABLE INIT*/
 
 int main()
@@ -183,8 +184,8 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
     //DID NOT FIND THE THREAD IN THE MAIN QUEUE
     if(ptr_tcb == NULL){
         // ! FIGURE OUT DATA STRUCTURE FOR RETURN VALUES 
-        exited_threads_LL * ptr = exited_threads->head;
-        exited_threads_LL * prev = NULL;
+        exited_threads_list * ptr = exited_threads;//this is head?
+        exited_threads_list * prev = NULL;
 
         while(ptr!=NULL){
             if ( ptr->finished_thread->tid == thread ) break;
@@ -193,28 +194,30 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
                 
         }
 
-        if(ptr == NULL ) return; // SOMEThiNG WENT WRONG AND nEVER FOUND
+        if(ptr == NULL ){
+            return -1;
+        } // SOMEThiNG WENT WRONG AND nEVER FOUND
 
         /* Handling the case of FIRST ELEMENT being joined and  ONLY ELEMENT*/
         if(prev == NULL && ptr->next ==NULL){
             *value_ptr = ptr->return_values;
             free(ptr); 
-            return;
+            return 0;
         }
         /* Handling the case of FIRST ELEMENT being joined and MORE ELEMENTs in LIST*/
-        if(prev == NULL ptr->next !=NULL ){
+        if(prev == NULL && ptr->next !=NULL ){
             *value_ptr = ptr->return_values;
-            exited_threads->head = exited_threads->head->next; 
+            exited_threads = exited_threads->next;
             ptr->next = NULL; 
             free(ptr); 
-            return; 
+            return 0;
         }
         /* FINALLY: Handle the case where its some arbitrary NODE in the list*/
         *value_ptr = ptr->return_values;
         prev->next = ptr->next; 
         ptr->next = NULL; 
         free(ptr); 
-        return; 
+        return 0;
 
     }
 
