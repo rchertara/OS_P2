@@ -13,7 +13,7 @@
 
 boolean first_time_creating=TRUE;    // variable used to check if pthread_create has ever been run before
 boolean sctf_flag = FALSE;
-signal_handler_creation=TRUE;
+boolean signal_handler_creation=TRUE;
 
 
 ucontext_t *uctx_sched; // current thread context; scheduler context
@@ -82,7 +82,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
         exit(1);
     }
     ucontext_t *uctx_new_thread = (ucontext_t *)malloc(sizeof(ucontext_t));
-    uctx_new_thread->uc_link = set_currentThread_terminated; //need to link this something? do not point this to the exit function because the exit function might run twice -DAVID
+    uctx_new_thread->uc_link = &set_currentThread_terminated; //need to link this something? do not point this to the exit function because the exit function might run twice -DAVID
     uctx_new_thread->uc_stack.ss_sp = thread_stack;
     uctx_new_thread->uc_stack.ss_size = STACK_SIZE;
     uctx_new_thread->uc_stack.ss_flags = 0; //dont know what this does
@@ -280,7 +280,7 @@ static void schedule()
     if(signal_handler_creation){
         signal_handler_creation=FALSE;
         memset (&sa, 0, sizeof (sa));
-        sa.sa_handler = rpthread_yield;
+        sa.sa_handler = &rpthread_yield;
         sigaction (SIGPROF, &sa, NULL);
     }
 
@@ -488,7 +488,7 @@ tcb* get_shortestJob(tcb * head){
     }
     tcb *curr = head;
     tcb *shortest_job=NULL;
-    int min_quantum=INT64_MAX;
+    __int64_t min_quantum=INT64_MAX;
 
     while(curr!=NULL){
         if( curr->quantum < min_quantum  && curr->t_context==READY){
