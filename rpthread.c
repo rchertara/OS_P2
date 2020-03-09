@@ -26,11 +26,6 @@ struct sigaction sa;
 exited_threads_list * exited_threads; // TODO allocate memory
 /* END OF GLOBAL VARIABLE INIT*/
 
-int main()
-{
-
-    return 0;
-}
 
 /* create a new thread */
 /*
