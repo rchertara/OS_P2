@@ -23,7 +23,7 @@ struct itimerval mytime; // TODO allocate memory
 struct sigaction sa;
 
 
-exited_threads_list * exited_threads; // TODO allocate memory
+exited_threads_list * exited_threads_head; // TODO allocate memory
 /* END OF GLOBAL VARIABLE INIT*/
 
 
@@ -85,7 +85,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
         exit(1);
     }
     ucontext_t *uctx_new_thread = (ucontext_t *)malloc(sizeof(ucontext_t));
-    uctx_new_thread->uc_link = &set_currentThread_terminated; //need to link this something? do not point this to the exit function because the exit function might run twice -DAVID
+    uctx_new_thread->uc_link = NULL; //need to link this something? do not point this to the exit function because the exit function might run twice -DAVID
     uctx_new_thread->uc_stack.ss_sp = thread_stack;
     uctx_new_thread->uc_stack.ss_size = STACK_SIZE;
     uctx_new_thread->uc_stack.ss_flags = 0; //dont know what this does
@@ -153,7 +153,7 @@ int rpthread_yield()
 /* terminate a thread */
 //
 void rpthread_exit(void *value_ptr){
-    // Deallocated any dynamic memory created when starting this thread
+// Deallocated any dynamic memory created when starting this thread
     //we need to something to data structure
     //set to terminated
     //check any join threads
@@ -165,13 +165,63 @@ void rpthread_exit(void *value_ptr){
     //swap to scheduler
 
     // YOUR CODE HERE
+
+    // ! READ BELOW OF HOW I THINK EXIT SHOULD WORK
+    /*
+    FROM Domingo benchmarks: we see that exit is called at the end of the thread function
+    which means all we need to do is:
+        -account for value_ptr
+        -change status
+        -add to terminated List
+        -look if any thread waiting on this thread
+        
+    */
+    // ! if a thread has been waiting on this thread change its status 
+        //> assume t1 is some arbitrary thread, t2 is current thread
+        //> ex: t1 has status waiting, and a join value equivalent to the thread that we are in right now (t2)
+        // > so look through queue for threads with waiting and tid matching current thread
+        // > change their status to ready,set join =0
+
+    tcb * ptr = current_thread_tcb;
+    tcb * found_waiting_thread = search_for_waiting_and_join(ptr->tid);
+
+    // * some thread  is waiting on the thread we are in right now
+    if(found_waiting_thread != NULL){
+        found_waiting_thread->t_status = READY; // THIS THREAD READY TO BE RUN AGAIN
+        found_waiting_thread->wait_on = 0; // ? IDK IF WE NEED THIS
+        rpthread_yield();
+    }
+
+
+    if(value_ptr == NULL){
+        ptr->t_status = TERMINATED;
+        rpthread_yield();
+    }
+    else{
+        exited_threads_list *new_finished_thread = (exited_threads_list*)malloc(sizeof(exited_threads_list)); 
+        new_finished_thread-> finished_thread_tcb = current_thread_tcb;
+        new_finished_thread->return_values = value_ptr;
+
+        if(exited_threads_head == NULL){
+            exited_threads_head = new_finished_thread;
+            new_finished_thread->next=NULL;
+        }
+        else{
+            new_finished_thread->next= exited_threads_head;
+            exited_threads_head  =new_finished_thread;
+        }
+        current_thread_tcb->t_status = TERMINATED;
+        rpthread_yield();
+    }
+    
+
 };
 
 /* Wait for thread termination */
 // inside of tcb keep a list of all threads waiting to join
 int rpthread_join(rpthread_t thread, void **value_ptr)
 {
-    //main calles join(1,)
+  //main calles join(1,)
     //T1  has an int * b pointing to 2
     //T1 will call exit and cast to (void*) b
     // now main needs to get the void* b so it needs a ptr to a ptr
@@ -182,46 +232,55 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
     // YOUR CODE HERE
 
     tcb *ptr_current = current_thread_tcb;
-    tcb * ptr_tcb = search_for_tid(thread);
-    
-    //DID NOT FIND THE THREAD IN THE MAIN QUEUE
-    if(ptr_tcb == NULL){
+    // ? should i be searching for thread in main queue or termianted queue ????
+    int found = search_if_terminated(thread);// 0: not found , 1 found
+    // int found = search_for_tid(thread); // this will search the queue
+    //THREAD HAS BEEN TERMINATED (i.e. found in terminated List )
+
+
+    //! this all works because we assume exit called before join
+    //>  0: not found , 1 found
+    if(found == 1){
         // ! FIGURE OUT DATA STRUCTURE FOR RETURN VALUES 
-        exited_threads_list * ptr = exited_threads;//this is head?
+        exited_threads_list * ptr = exited_threads_head;
         exited_threads_list * prev = NULL;
 
         while(ptr!=NULL){
-            if ( ptr->finished_thread->tid == thread ) break;
+            if ( ptr->finished_thread_tcb->tid == thread ) break;
             prev = ptr;
             ptr = ptr->next;
                 
         }
 
-        if(ptr == NULL ){
-            return -1;
-        } // SOMEThiNG WENT WRONG AND nEVER FOUND
+        if(ptr == NULL ) return; // SOMEThiNG WENT WRONG AND nEVER FOUND
 
         /* Handling the case of FIRST ELEMENT being joined and  ONLY ELEMENT*/
         if(prev == NULL && ptr->next ==NULL){
             *value_ptr = ptr->return_values;
             free(ptr); 
-            return 0;
+            return;
         }
         /* Handling the case of FIRST ELEMENT being joined and MORE ELEMENTs in LIST*/
         if(prev == NULL && ptr->next !=NULL ){
             *value_ptr = ptr->return_values;
-            exited_threads = exited_threads->next;
+            exited_threads_head = exited_threads_head->next; 
             ptr->next = NULL; 
             free(ptr); 
-            return 0;
+            return; 
         }
         /* FINALLY: Handle the case where its some arbitrary NODE in the list*/
         *value_ptr = ptr->return_values;
         prev->next = ptr->next; 
         ptr->next = NULL; 
         free(ptr); 
-        return 0;
+        return; 
 
+    }
+    // not found in termianted ll (i.e. not done )
+    else if(found == 0){
+        ptr_current->t_status = WAITING;
+        ptr_current->wait_on = thread;
+        rpthread_yield(); // stop wasting time in this thread
     }
 
     return 0;
@@ -283,7 +342,7 @@ static void schedule()
     if(signal_handler_creation){
         signal_handler_creation=FALSE;
         memset (&sa, 0, sizeof (sa));
-        sa.sa_handler = &rpthread_yield;
+        sa.sa_handler = signal_handler_func ;
         sigaction (SIGPROF, &sa, NULL);
     }
 
@@ -604,4 +663,55 @@ tcb * search_for_tid(rpthread_t goal_tid){
 
     // Did not find goal_tid
     return NULL;
+}
+
+void signal_handler_func(){
+    current_thread_tcb->t_context=READY;
+    getitimer(ITIMER_PROF, &mytime);
+    mytime.it_value.tv_usec = 0; // stop the timer
+    setitimer(ITIMER_PROF, &mytime, NULL);
+    swapcontext(current_thread_tcb->t_context, uctx_sched); // save current context, and then switch to scheduler
+}
+
+tcb * search_for_waiting_and_join(rpthread_t goal_tid){
+    tcb * ptr_queue_head;
+    
+    if(sctf_flag){
+        ptr_queue_head = ml_queue[0]-> head;
+
+        while(ptr_queue_head!=NULL){
+            if(ptr_queue_head ->wait_on == goal_tid && ptr_queue_head ->t_status == WAITING  ) return ptr_queue_head; // found goal_tid in queue 
+            ptr_queue_head = ptr_queue_head->next;
+        }
+    }
+    else{
+        int curr_level = 0;
+        while(curr_level < LEVELS){
+            ptr_queue_head = ml_queue[curr_level]-> head;
+               while(ptr_queue_head!=NULL){
+                    if(ptr_queue_head ->wait_on == goal_tid && ptr_queue_head ->t_status == WAITING) return ptr_queue_head; // found goal_tid in queue 
+                    ptr_queue_head = ptr_queue_head->next;
+            }
+            // go to next level
+            curr_level++;
+        }
+    }
+
+    // Did not find goal_tid
+    return NULL;
+}
+
+
+/*
+0: NoT FOUND
+1: FOUnd
+*/
+int search_if_terminated(rpthread_t goal_tid){
+    exited_threads_list * ptr = exited_threads_head; // point to head of termianted thread lL
+    while (ptr!= NULL){
+        if(ptr->finished_thread_tcb->tid == goal_tid) return 1; // success
+        ptr= ptr->next;
+    }
+    //failure
+    return 0;
 }

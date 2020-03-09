@@ -42,7 +42,8 @@ typedef enum
 	SCHEDULED,
 	RUNNING,
 	BLOCKED,
-	TERMINATED
+	TERMINATED,
+	WAITING
 } status;
 
 typedef enum
@@ -75,7 +76,7 @@ typedef struct threadControlBlock
 	int priority;
 	int quantum;
 	struct threadControlBlock *next; //make a linkedlist or queue out of this
-	rpthread_t join;				 //keep joining thread?
+	rpthread_t wait_on;				 //keep joining thread?
 } tcb;
 
 typedef struct Queue
@@ -87,7 +88,7 @@ typedef struct Queue
 
 typedef struct Terminated_Threads
 {
-	tcb *finished_thread;
+	tcb *finished_thread_tcb;
 	void * return_values;
 	struct Terminated_Threads *next;
 
@@ -136,7 +137,8 @@ void printQueue();
 tcb *dequeue();
 void ml_queue_init();
 int get_level(int quant);
-
+void signal_handler_func();
+tcb * search_for_waiting_and_join(rpthread_t goal_tid);
 /* Create scheduler context*/
 
 static void sched_stcf();
