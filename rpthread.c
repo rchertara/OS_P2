@@ -223,6 +223,10 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
     int found = search_if_terminated(thread);// 0: not found , 1 found
     // int found = search_for_tid(thread); // this will search the queue
     //THREAD HAS BEEN TERMINATED (i.e. found in terminated List )
+
+
+    //! this all works because we assume exit called before join
+    //>  0: not found , 1 found
     if(found == 1){
         // ! FIGURE OUT DATA STRUCTURE FOR RETURN VALUES 
         exited_threads_list * ptr = exited_threads_head;
@@ -244,7 +248,7 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
             return;
         }
         /* Handling the case of FIRST ELEMENT being joined and MORE ELEMENTs in LIST*/
-        if(prev == NULL ptr->next !=NULL ){
+        if(prev == NULL && ptr->next !=NULL ){
             *value_ptr = ptr->return_values;
             exited_threads_head = exited_threads_head->next; 
             ptr->next = NULL; 
