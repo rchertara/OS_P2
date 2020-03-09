@@ -22,7 +22,7 @@ mlq *ml_queue[4] , *queue_waiting_to_join; // TODO allocate memory
 struct itimerval mytime; // TODO allocate memory
 struct sigaction sa;
 
-exited_threads_LL * exited_threads; // TODO allocate memory 
+exited_threads_LL * exited_threads_head; // TODO allocate memory 
 /* END OF GLOBAL VARIABLE INIT*/
 
 int main()
@@ -171,12 +171,13 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
     // YOUR CODE HERE
 
     tcb *ptr_current = current_thread_tcb;
-    tcb * ptr_tcb = search_for_tid(thread);
+    // ? should i be searching for thread in main queue or termianted queue ????
+    int found = search_if_terminated(thread);// 0: not found , 1 found
     
-    //DID NOT FIND THE THREAD IN THE MAIN QUEUE
-    if(ptr_tcb == NULL){
+    //THREAD HAS BEEN TERMINATED (i.e. found in terminated List )
+    if(found == 1){
         // ! FIGURE OUT DATA STRUCTURE FOR RETURN VALUES 
-        exited_threads_LL * ptr = exited_threads->head;
+        exited_threads_LL * ptr = exited_threads_head;
         exited_threads_LL * prev = NULL;
 
         while(ptr!=NULL){
@@ -197,7 +198,7 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
         /* Handling the case of FIRST ELEMENT being joined and MORE ELEMENTs in LIST*/
         if(prev == NULL ptr->next !=NULL ){
             *value_ptr = ptr->return_values;
-            exited_threads->head = exited_threads->head->next; 
+            exited_threads_head = exited_threads_head->next; 
             ptr->next = NULL; 
             free(ptr); 
             return; 
@@ -209,6 +210,12 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
         free(ptr); 
         return; 
 
+    }
+    // not found in termianted ll (i.e. not done )
+    else if(found == 0){
+        ptr_current->status = WAITING;
+        ptr_current->join = thread;
+        rpthread_yield();
     }
 
     return 0;
@@ -586,4 +593,31 @@ tcb * search_for_tid(rpthread_t goal_tid){
 
     // Did not find goal_tid
     return NULL;
+}
+
+/*
+0: NoT FOUND
+1: FOUnd
+*/
+int search_if_terminated(rpthread_t goal_tid){
+    exited_threads_LL * ptr = exited_threads_head; // point to head of termianted thread lL
+    while (ptr!= NULL){
+        if(ptr->finished_thread->tid == goal_tid) return 1 // success
+        ptr= ptr->next;
+    }
+    //failure
+    return 0;
+}
+
+
+// ! WE HAVE TO USE uc_link, otherwise idk how to exit 
+void finished_thread(){
+    tcb * ptr_curr = current_thread_tcb;
+    // ! Put Stuff for clean up here
+        // > Ex: change join parameter in struct, remove it from any queues(or does scheduler handle that)?
+
+    // ! THIS CHANGE MUST BE DONE AT THE END
+    ptr_curr->t_status = TERMINATED; // ? Assume that thread a context that has finished/return is done
+    // ? wHAT if timer goes off before finish changing status,
+
 }
