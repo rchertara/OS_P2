@@ -59,6 +59,12 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     // ! REMEMBER TO ADD CURRENT TO QUEUE FOR THE FIRST TIME CAUSE IT CONTAINS MAIN
     if (first_time_creating)
     {
+        #ifndef MLFQ
+            sctf_flag=FALSE;
+        #else
+            sctf_flag=TRUE;
+        #endif
+
         first_time_creating = FALSE; // make sure never run again
 
         ml_queue_init();
@@ -70,6 +76,8 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
         //create timer
         init_timer();
         //init sig handler here or in schedule
+
+
 
         // ! DO NOT ENQUEUE main b/c when call scheduler, you will enqueue current context there, which is main
     }
@@ -284,7 +292,6 @@ static void schedule()
         sigaction (SIGPROF, &sa, NULL);
     }
 
-
     while (1) //update tcb enq and deq you need while loop !!!
     {         // is the while loop calling the same sub rountine schedule func over and over?
 
@@ -297,6 +304,8 @@ static void schedule()
             sched_mlfq();
         }
     }
+
+
 
 }
 
