@@ -42,7 +42,8 @@ typedef enum
 	SCHEDULED,
 	RUNNING,
 	BLOCKED,
-	TERMINATED
+	TERMINATED,
+	WAITING
 } status;
 
 typedef enum
@@ -87,7 +88,7 @@ typedef struct Queue
 
 typedef struct Terminated_Threads
 {
-	tcb *finished_thread;
+	tcb *finished_thread_tcb;
 	void * return_values;
 	struct Terminated_Threads *next;
 

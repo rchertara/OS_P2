@@ -154,6 +154,54 @@ void rpthread_exit(void *value_ptr){
     //swap to scheduler
 
     // YOUR CODE HERE
+
+    // ! READ BELOW OF HOW I THINK EXIT SHOULD WORK
+    /*
+    FROM Domingo benchmarks: we see that exit is called at the end of the thread function
+    which means all we need to do is:
+        -account for value_ptr
+        -change status
+        -add to terminated List
+        -look if any thread waiting on this thread
+        
+    */
+    // ! if a thread has been waiting on this thread change its status 
+        //> assume t1 is some arbitrary thread, t2 is current thread
+        //> ex: t1 has status waiting, and a join value equivalent to the thread that we are in right now (t2)
+        // > so look through queue for threads with waiting and tid matching current thread
+        // > change their status to ready,set join =0
+
+    tcb * ptr = current_thread_tcb;
+    tcb * found_waiting_thread = search_for_waiting_and_join(ptr->tid);
+
+    // * some thread that is waiting on thread we are in right now
+    if(found_waiting_thread != NULL){
+        found_waiting_thread->status = READY; // THIS THREAD READY TO BE RUN AGAIN
+        found_waiting_thread->join = 0; // ? IDK IF WE NEED THIS
+    }
+
+
+    if(value_ptr == NULL){
+        ptr->status = TERMINATED;
+        rpthread_yield();
+    }
+    else{
+        exited_threads_list *new_finished_thread = (exited_threads_list*)malloc(sizeof(exited_threads_list)); 
+        new_finished_thread-> finished_thread_tcb = current_thread_tcb;
+        new_finished_thread->return_values = value_ptr;
+
+        if(exited_threads_head == NULL){
+            exited_threads_head = new_finished_thread;
+            new_finished_thread->next=NULL;
+        }
+        else{
+            new_finished_thread->next= exited_threads_head;
+            exited_threads_head  =new_finished_thread;
+        }
+        current_thread_tcb->status = TERMINATED;
+        rpthread_yield();
+    }
+    
 };
 
 /* Wait for thread termination */
@@ -173,15 +221,15 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
     tcb *ptr_current = current_thread_tcb;
     // ? should i be searching for thread in main queue or termianted queue ????
     int found = search_if_terminated(thread);// 0: not found , 1 found
-    
+    // int found = search_for_tid(thread); // this will search the queue
     //THREAD HAS BEEN TERMINATED (i.e. found in terminated List )
     if(found == 1){
         // ! FIGURE OUT DATA STRUCTURE FOR RETURN VALUES 
-        exited_threads_LL * ptr = exited_threads_head;
-        exited_threads_LL * prev = NULL;
+        exited_threads_list * ptr = exited_threads_head;
+        exited_threads_list * prev = NULL;
 
         while(ptr!=NULL){
-            if ( ptr->finished_thread->tid == thread ) break;
+            if ( ptr->finished_thread_tcb->tid == thread ) break;
             prev = ptr;
             ptr = ptr->next;
                 
@@ -215,7 +263,7 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
     else if(found == 0){
         ptr_current->status = WAITING;
         ptr_current->join = thread;
-        rpthread_yield();
+        rpthread_yield(); // stop wasting time in this thread
     }
 
     return 0;
@@ -567,14 +615,19 @@ int get_level(int quant)
     }
 }
 
-tcb * search_for_tid(rpthread_t goal_tid){
+/*
+0: NoT FOUND
+1: FOUnd
+*/
+
+int * search_for_tid(rpthread_t goal_tid){
     tcb * ptr_queue_head;
     
     if(sctf_flag){
         ptr_queue_head = ml_queue[0]-> head;
 
         while(ptr_queue_head!=NULL){
-            if(ptr_queue_head ->tid == goal_tid) return ptr_queue_head; // found goal_tid in queue 
+            if(ptr_queue_head ->tid == goal_tid) return 1; // found goal_tid in queue 
             ptr_queue_head = ptr_queue_head->next;
         }
     }
@@ -583,7 +636,7 @@ tcb * search_for_tid(rpthread_t goal_tid){
         while(curr_level < LEVELS){
             ptr_queue_head = ml_queue[curr_level]-> head;
                while(ptr_queue_head!=NULL){
-                    if(ptr_queue_head ->tid == goal_tid) return ptr_queue_head; // found goal_tid in queue 
+                    if(ptr_queue_head ->tid == goal_tid) return 1; // found goal_tid in queue 
                     ptr_queue_head = ptr_queue_head->next;
             }
             // go to next level
@@ -592,7 +645,34 @@ tcb * search_for_tid(rpthread_t goal_tid){
     }
 
     // Did not find goal_tid
-    return NULL;
+    return 0;
+}
+tcb * search_for_waiting_and_join(rpthread_t goal_tid){
+    tcb * ptr_queue_head;
+    
+    if(sctf_flag){
+        ptr_queue_head = ml_queue[0]-> head;
+
+        while(ptr_queue_head!=NULL){
+            if(ptr_queue_head ->join == goal_tid && ptr_queue_head ->status == WAITING  ) return ptr_queue_head; // found goal_tid in queue 
+            ptr_queue_head = ptr_queue_head->next;
+        }
+    }
+    else{
+        int curr_level = 0;
+        while(curr_level < LEVELS){
+            ptr_queue_head = ml_queue[curr_level]-> head;
+               while(ptr_queue_head!=NULL){
+                    if(ptr_queue_head ->join == goal_tid && ptr_queue_head ->status == WAITING) return ptr_queue_head; // found goal_tid in queue 
+                    ptr_queue_head = ptr_queue_head->next;
+            }
+            // go to next level
+            curr_level++;
+        }
+    }
+
+    // Did not find goal_tid
+    return 0;
 }
 
 /*
@@ -611,13 +691,13 @@ int search_if_terminated(rpthread_t goal_tid){
 
 
 // ! WE HAVE TO USE uc_link, otherwise idk how to exit 
-void finished_thread(){
-    tcb * ptr_curr = current_thread_tcb;
-    // ! Put Stuff for clean up here
-        // > Ex: change join parameter in struct, remove it from any queues(or does scheduler handle that)?
+// void finished_thread(){
+//     tcb * ptr_curr = current_thread_tcb;
+//     // ! Put Stuff for clean up here
+//         // > Ex: change join parameter in struct, remove it from any queues(or does scheduler handle that)?
 
-    // ! THIS CHANGE MUST BE DONE AT THE END
-    ptr_curr->t_status = TERMINATED; // ? Assume that thread a context that has finished/return is done
-    // ? wHAT if timer goes off before finish changing status,
+//     // ! THIS CHANGE MUST BE DONE AT THE END
+//     ptr_curr->t_status = TERMINATED; // ? Assume that thread a context that has finished/return is done
+//     // ? wHAT if timer goes off before finish changing status,
 
-}
+// }
