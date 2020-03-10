@@ -75,6 +75,8 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
         //create timer
         init_timer();
 
+
+
         terminated_threads_init();
 
         //init sig handler here or in schedule
@@ -107,6 +109,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     // makeconext, based on args
     if (arg)
     { // arguments passed
+
         makecontext(uctx_new_thread, (void *)function, 1, arg);
     }
     else
@@ -129,7 +132,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     enqueue(tcb_newthread);
 
     /* switch to the scheduler */
-    schedule(); // idk if this is right
+     // idk if this is right
 
     return 0;
 };
@@ -155,7 +158,6 @@ int rpthread_yield()
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
     swapcontext(current_thread_tcb->t_context, uctx_sched); // save current context, and then switch to scheduler
-
     return 0;
 };
 
@@ -351,9 +353,8 @@ static void schedule()
     if(signal_handler_creation){
         signal_handler_creation=FALSE;
         memset (&sa, 0, sizeof (sa));
-        sa.sa_handler = signal_handler_func ;
+        sa.sa_handler = signal_handler_func;
         sigaction (SIGPROF, &sa, NULL);
-
     }
 
     while (1) //update tcb enq and deq you need while loop !!!
@@ -397,7 +398,7 @@ static void sched_stcf()
         tcb * schedule_thread= dequeue();
         schedule_thread->quantum++;
         schedule_thread->t_status=RUNNING;
-        mytime.it_value.tv_sec=2;//restart timer
+        mytime.it_value.tv_usec=5;//restart timer
         setitimer(ITIMER_PROF, &mytime, NULL);//is this correct?
         current_thread_tcb=schedule_thread;
         swapcontext(uctx_sched,schedule_thread->t_context);
@@ -415,7 +416,7 @@ static void sched_mlfq()
     tcb * schedule_thread= dequeue();
     schedule_thread->quantum++;
     schedule_thread->t_status=RUNNING;
-    mytime.it_value.tv_sec=2;//restart timer
+    mytime.it_value.tv_usec=5;//restart timer
     setitimer(ITIMER_PROF, &mytime, NULL);// is this correct?
     current_thread_tcb=schedule_thread;
     swapcontext(uctx_sched,schedule_thread->t_context);
@@ -430,7 +431,7 @@ static void sched_mlfq()
 void create_scheduler_context()
 {
 
-    ucontext_t *uctx_sched = (ucontext_t *)malloc(sizeof(ucontext_t));
+    uctx_sched = (ucontext_t *)malloc(sizeof(ucontext_t));
 
     /*create stack and check if memory allocation good*/
     void *stack_sched = malloc(STACK_SIZE);
@@ -455,7 +456,7 @@ void create_scheduler_context()
     uctx_sched->uc_link = NULL; // it will switch to that context, but since null will exit
 
     // make the context for future use
-    makecontext(uctx_sched, (void *)&schedule, 0);
+    makecontext(uctx_sched, (void *)schedule, 0);
 }
 
 void create_tcb_main()
@@ -485,8 +486,8 @@ void create_tcb_main()
 void init_timer()
 {
     memset(&mytime, 0, sizeof(mytime));
-    mytime.it_value.tv_usec = 0;
-    mytime.it_value.tv_sec = 5;//start timer
+    mytime.it_value.tv_usec = 5;
+    mytime.it_value.tv_sec = 0;//start timer
     mytime.it_interval.tv_usec = 0;
     mytime.it_interval.tv_sec = 0;
     setitimer(ITIMER_PROF, &mytime, NULL);
