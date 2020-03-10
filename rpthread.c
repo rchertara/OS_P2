@@ -4,6 +4,7 @@
 // username of iLab:
 // iLab Server:
 
+#include <limits.h>
 #include "rpthread.h"
 
 /* INITAILIZE ALL YOUR VARIABLES HERE*/
@@ -149,7 +150,7 @@ int rpthread_yield()
 	*/
     //update TCB here
     //MAKE SURE NOT WORKING WITH EMPTY LL
-    current_thread_tcb->t_context=READY;
+    current_thread_tcb->t_status=READY;
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -352,15 +353,14 @@ static void schedule()
         memset (&sa, 0, sizeof (sa));
         sa.sa_handler = signal_handler_func ;
         sigaction (SIGPROF, &sa, NULL);
+
     }
 
     while (1) //update tcb enq and deq you need while loop !!!
     {
         // is the while loop calling the same sub rountine schedule func over and over?
 
-        if(current_thread_tcb->t_status==TERMINATED){//does this go here?
-            delete_tcb(current_thread_tcb->tid);
-        }
+
 
         if (sctf_flag)
         {
@@ -369,6 +369,9 @@ static void schedule()
         else
         {
             sched_mlfq();
+        }
+        if(current_thread_tcb->t_status==TERMINATED){//does this go here?
+            delete_tcb(current_thread_tcb->tid);
         }
     }
 
@@ -510,7 +513,7 @@ void enqueue(tcb *tcb_node)
         int quant = tcb_node->quantum;
         int level = get_level(quant);
 
-        if (ml_queue[level] == NULL)
+        if (ml_queue[level]->head == NULL) //nothing in list?
         {
             ml_queue[level]->head = tcb_node;
             ml_queue[level]->tail = tcb_node;
@@ -569,10 +572,10 @@ tcb* get_shortestJob(tcb * head){
     }
     tcb *curr = head;
     tcb *shortest_job=NULL;
-    __int64_t min_quantum=INT64_MAX;
+    int min_quantum=INT_MAX;
 
     while(curr!=NULL){
-        if( curr->quantum < min_quantum  && curr->t_context==READY){
+        if( curr->quantum < min_quantum  && curr->t_status==READY){
             min_quantum=curr->quantum;
             shortest_job=curr;
         }
@@ -625,7 +628,7 @@ void terminated_threads_init(){
 void ml_queue_init()
 {
     // * FALSE == 0 , TRUE = anything other than 0, in this case 1 
-    if (sctf_flag )
+    if (!sctf_flag)
     {
         int i = 0;
         for (i; i < LEVELS; i++)
@@ -694,7 +697,7 @@ int get_level(int quant)
 //}
 
 void signal_handler_func(){
-    current_thread_tcb->t_context=READY;
+    current_thread_tcb->t_status=READY;
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -778,7 +781,8 @@ void delete_tcb(rpthread_t del_tid){
     }
 
     else{//MLFQ
-        for (int i = 0; i < LEVELS ; i++) {
+        int i;
+        for ( i = 0; i < LEVELS ; i++) {
             mlq* curr_q=ml_queue[i];
             int success=delete_from_list(curr_q->head,del_tid);
             if(success){
