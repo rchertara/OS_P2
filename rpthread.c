@@ -358,7 +358,7 @@ static void schedule()
     {
         // is the while loop calling the same sub rountine schedule func over and over?
 
-        if(current_thread_tcb->t_context==TERMINATED){//does this go here?
+        if(current_thread_tcb->t_status==TERMINATED){//does this go here?
             delete_tcb(current_thread_tcb->tid);
         }
 
@@ -773,7 +773,7 @@ int delete_from_list(tcb* head,pthread_t del_tid){
 
 void delete_tcb(rpthread_t del_tid){
     if(sctf_flag){
-        delete_from_list(ml_queue[0],del_tid);
+        delete_from_list(ml_queue[0]->head,del_tid);
         return;
     }
 
