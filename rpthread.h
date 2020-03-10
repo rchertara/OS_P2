@@ -1,4 +1,4 @@
-// File:	rpthread_t.h
+// File:    rpthread_t.h
 
 // List all group member's name:
 // username of iLab:
@@ -34,31 +34,31 @@
 
 typedef enum
 {
-	/*A RUNNING thread is the thread that is currently executing on a processor. 
-	The RUNNING thread is selected from the list of Ready threads for that processor, 
-	which are threads that are good to be swapped in to execute
-	*/
-	READY,
-	SCHEDULED,
-	RUNNING,
-	BLOCKED,
-	TERMINATED,
-	WAITING
+    /*A RUNNING thread is the thread that is currently executing on a processor. 
+    The RUNNING thread is selected from the list of Ready threads for that processor, 
+    which are threads that are good to be swapped in to execute
+    */
+    READY,
+    SCHEDULED,
+    RUNNING,
+    BLOCKED,
+    TERMINATED,
+    WAITING
 } status;
 
 typedef enum
 {
-	FALSE,
-	TRUE
+    FALSE,
+    TRUE
 } boolean;
 typedef uint rpthread_t;
 
 /* mutex struct definition */
 typedef struct rpthread_mutex_t
 {
-	/* add something here */
+    /* add something here */
 
-	// YOUR CODE HERE
+    // YOUR CODE HERE
 } rpthread_mutex_t;
 
 /* define your data structures here: */
@@ -68,29 +68,30 @@ typedef struct rpthread_mutex_t
 
 typedef struct threadControlBlock
 {
-	/* add important states in a thread control block */
-	// thread Id
-	rpthread_t tid;
-	status t_status;
-	ucontext_t *t_context;
-	int priority;
-	int quantum;
-	struct threadControlBlock *next; //make a linkedlist or queue out of this
-	rpthread_t wait_on;				 //keep joining thread?
+    /* add important states in a thread control block */
+    // thread Id
+    rpthread_t tid;
+    status t_status;
+    ucontext_t *t_context;
+    int priority;
+    int quantum;
+    struct threadControlBlock *next; //make a linkedlist or queue out of this
+    rpthread_t wait_on; 
+    char n;          //keep joining thread?
 } tcb;
 
 typedef struct Queue
 {
-	tcb *head;
-	tcb *tail;
+    tcb *head;
+    tcb *tail;
 
 } mlq;
 
 typedef struct Terminated_Threads
 {
-	tcb *finished_thread_tcb;
-	void * return_values;
-	struct Terminated_Threads *next;
+    tcb *finished_thread_tcb;
+    void * return_values;
+    struct Terminated_Threads *next;
 
 }exited_threads_list;
 
@@ -110,7 +111,7 @@ int rpthread_join(rpthread_t thread, void **value_ptr);
 
 /* initial the mutex lock */
 int rpthread_mutex_init(rpthread_mutex_t *mutex, const pthread_mutexattr_t
-													 *mutexattr);
+                                                     *mutexattr);
 
 /* aquire the mutex lock */
 int rpthread_mutex_lock(rpthread_mutex_t *mutex);
@@ -139,6 +140,10 @@ void ml_queue_init();
 int get_level(int quant);
 void signal_handler_func();
 tcb * search_for_waiting_and_join(rpthread_t goal_tid);
+tcb * findSmallest();
+void addToFront(tcb *addThis);
+tcb * search_for_waiting(rpthread_t goal_tid);
+void *remove_from_list(rpthread_t goal_tid);
 /* Create scheduler context*/
 
 static void sched_stcf();
