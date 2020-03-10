@@ -145,6 +145,10 @@ static void sched_stcf();
 
 static void sched_mlfq();
 
+void delete_tcb(rpthread_t del_tid);
+int search_if_terminated(rpthread_t goal_tid);
+void terminated_threads_init();
+
 #ifdef USE_RTHREAD
 #define pthread_t rpthread_t
 #define pthread_mutex_t rpthread_mutex_t

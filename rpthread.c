@@ -47,6 +47,9 @@ void set_currentThread_terminated(){
 }
 
 
+
+
+
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
                     void *(*function)(void *), void *arg)
 {
@@ -70,6 +73,9 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
         create_scheduler_context();
         //create timer
         init_timer();
+
+        terminated_threads_init();
+
         //init sig handler here or in schedule
 
 
@@ -111,10 +117,12 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     // TODO REVISE
     tcb *tcb_newthread = (tcb *)malloc(sizeof(tcb));
     tcb_newthread->tid = 0;
+    tcb_newthread->wait_on=0;
     tcb_newthread->t_status = READY;
     tcb_newthread->priority = 0;
     tcb_newthread->quantum=0;
     tcb_newthread->t_context = uctx_new_thread;
+    tcb_newthread->next=NULL;
 
     //! ENQUEUE THIS tcb_newthread
     enqueue(tcb_newthread);
@@ -252,13 +260,13 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
                 
         }
 
-        if(ptr == NULL ) return; // SOMEThiNG WENT WRONG AND nEVER FOUND
+        if(ptr == NULL ) return -1; // SOMEThiNG WENT WRONG AND nEVER FOUND
 
         /* Handling the case of FIRST ELEMENT being joined and  ONLY ELEMENT*/
         if(prev == NULL && ptr->next ==NULL){
             *value_ptr = ptr->return_values;
             free(ptr); 
-            return;
+            return 0;
         }
         /* Handling the case of FIRST ELEMENT being joined and MORE ELEMENTs in LIST*/
         if(prev == NULL && ptr->next !=NULL ){
@@ -266,14 +274,14 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
             exited_threads_head = exited_threads_head->next; 
             ptr->next = NULL; 
             free(ptr); 
-            return; 
+            return 1;
         }
         /* FINALLY: Handle the case where its some arbitrary NODE in the list*/
         *value_ptr = ptr->return_values;
         prev->next = ptr->next; 
         ptr->next = NULL; 
         free(ptr); 
-        return; 
+        return 2;
 
     }
     // not found in termianted ll (i.e. not done )
@@ -347,7 +355,12 @@ static void schedule()
     }
 
     while (1) //update tcb enq and deq you need while loop !!!
-    {         // is the while loop calling the same sub rountine schedule func over and over?
+    {
+        // is the while loop calling the same sub rountine schedule func over and over?
+
+        if(current_thread_tcb->t_context==TERMINATED){//does this go here?
+            delete_tcb(current_thread_tcb->tid);
+        }
 
         if (sctf_flag)
         {
@@ -388,6 +401,8 @@ static void sched_stcf()
 
 }
 
+
+
 // /* Preemptive MLFQ scheduling algorithm */
 static void sched_mlfq()
 {
@@ -402,7 +417,7 @@ static void sched_mlfq()
     current_thread_tcb=schedule_thread;
     swapcontext(uctx_sched,schedule_thread->t_context);
     // YOUR CODE HERE
-    return; // ! delete later
+
 }
 
 // Feel free to add any other functions you need
@@ -444,8 +459,11 @@ void create_tcb_main()
 {
     tcb *tcb_main = (tcb *)malloc(sizeof(tcb));
     tcb_main->tid = 0;
-    tcb_main->t_status = RUNNING;
+    tcb_main->t_status = RUNNING;// is this the right state intially?
     tcb_main->priority = 0;
+    tcb_main->quantum=0;
+    tcb_main->next=NULL;
+    tcb_main->wait_on=0;// is this ok?
 
     /*Creating the threadControlBlock(tcb)  */
     ucontext_t *uctx_main = (ucontext_t *)malloc(sizeof(ucontext_t));
@@ -594,6 +612,16 @@ tcb *dequeue()
     }
 }
 
+
+
+void terminated_threads_init(){
+
+    exited_threads_head=(exited_threads_list *)malloc(sizeof(exited_threads_list));
+
+}
+
+
+
 void ml_queue_init()
 {
     // * FALSE == 0 , TRUE = anything other than 0, in this case 1 
@@ -637,33 +665,33 @@ int get_level(int quant)
     }
 }
 
-tcb * search_for_tid(rpthread_t goal_tid){
-    tcb * ptr_queue_head;
-    
-    if(sctf_flag){
-        ptr_queue_head = ml_queue[0]-> head;
-
-        while(ptr_queue_head!=NULL){
-            if(ptr_queue_head ->tid == goal_tid) return ptr_queue_head; // found goal_tid in queue 
-            ptr_queue_head = ptr_queue_head->next;
-        }
-    }
-    else{
-        int curr_level = 0;
-        while(curr_level < LEVELS){
-            ptr_queue_head = ml_queue[curr_level]-> head;
-               while(ptr_queue_head!=NULL){
-                    if(ptr_queue_head ->tid == goal_tid) return ptr_queue_head; // found goal_tid in queue 
-                    ptr_queue_head = ptr_queue_head->next;
-            }
-            // go to next level
-            curr_level++;
-        }
-    }
-
-    // Did not find goal_tid
-    return NULL;
-}
+//tcb * search_for_tid(rpthread_t goal_tid){
+//    tcb * ptr_queue_head;
+//
+//    if(sctf_flag){
+//        ptr_queue_head = ml_queue[0]-> head;
+//
+//        while(ptr_queue_head!=NULL){
+//            if(ptr_queue_head ->tid == goal_tid) return ptr_queue_head; // found goal_tid in queue
+//            ptr_queue_head = ptr_queue_head->next;
+//        }
+//    }
+//    else{
+//        int curr_level = 0;
+//        while(curr_level < LEVELS){
+//            ptr_queue_head = ml_queue[curr_level]-> head;
+//               while(ptr_queue_head!=NULL){
+//                    if(ptr_queue_head ->tid == goal_tid) return ptr_queue_head; // found goal_tid in queue
+//                    ptr_queue_head = ptr_queue_head->next;
+//            }
+//            // go to next level
+//            curr_level++;
+//        }
+//    }
+//
+//    // Did not find goal_tid
+//    return NULL;
+//}
 
 void signal_handler_func(){
     current_thread_tcb->t_context=READY;
@@ -714,4 +742,48 @@ int search_if_terminated(rpthread_t goal_tid){
     }
     //failure
     return 0;
+}
+
+
+
+int delete_from_list(tcb* head,pthread_t del_tid){
+    tcb* curr=head;
+    tcb* prev=NULL;
+    if(head->tid==del_tid){
+        tcb * temp=head;
+        head=head->next;
+        free(temp);
+        puts("deleted tcb head");
+        return 1;
+    }
+    while(curr!=NULL){
+        if(curr->tid==del_tid){
+            prev->next=curr->next;
+            free(curr);//deallocate here i guess?
+            puts("deleted tcb");
+            return 1;
+        }
+        prev=curr;
+        curr=curr->next;
+    }
+
+    return -1;
+}
+
+
+void delete_tcb(rpthread_t del_tid){
+    if(sctf_flag){
+        delete_from_list(ml_queue[0],del_tid);
+        return;
+    }
+
+    else{//MLFQ
+        for (int i = 0; i < LEVELS ; i++) {
+            mlq* curr_q=ml_queue[i];
+            int success=delete_from_list(curr_q->head,del_tid);
+            if(success){
+                return;
+            }
+        }
+    }
 }
