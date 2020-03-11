@@ -16,7 +16,7 @@ boolean first_time_creating=TRUE;    // variable used to check if pthread_create
 boolean sctf_flag = FALSE;
 boolean signal_handler_creation=TRUE;
 
-
+int tid_count=1;
 ucontext_t *uctx_sched; // current thread context; scheduler context
 tcb* current_thread_tcb;//! julian you need to do something with this cap
 mlq *ml_queue[4] , *queue_waiting_to_join; // TODO allocate memory 
@@ -76,7 +76,6 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
         init_timer();
 
 
-
         terminated_threads_init();
 
         //init sig handler here or in schedule
@@ -120,7 +119,8 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     // ! ALOT MISSING FROM TCB BLOCK, REVISE LATER
     // TODO REVISE
     tcb *tcb_newthread = (tcb *)malloc(sizeof(tcb));
-    tcb_newthread->tid = 0;
+    tcb_newthread->tid = tid_count;
+    tid_count++;
     tcb_newthread->wait_on=0;
     tcb_newthread->t_status = READY;
     tcb_newthread->priority = 0;
@@ -131,6 +131,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     //! ENQUEUE THIS tcb_newthread
     enqueue(tcb_newthread);
 
+    swapcontext(current_thread_tcb->t_context,uctx_sched); //swap context?
     /* switch to the scheduler */
      // idk if this is right
 
@@ -153,7 +154,9 @@ int rpthread_yield()
 	*/
     //update TCB here
     //MAKE SURE NOT WORKING WITH EMPTY LL
-    current_thread_tcb->t_status=READY;
+    if(current_thread_tcb->t_status!=TERMINATED){// seems sus
+        current_thread_tcb->t_status=READY;
+    }
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -361,8 +364,6 @@ static void schedule()
     {
         // is the while loop calling the same sub rountine schedule func over and over?
 
-
-
         if (sctf_flag)
         {
             sched_stcf();
@@ -413,6 +414,7 @@ static void sched_mlfq()
     // Your own implementation of MLFQ
     // (feel free to modify arguments and return types)
     //update curr priority by decrementing it
+    current_thread_tcb->t_status=READY;
     tcb * schedule_thread= dequeue();
     schedule_thread->quantum++;
     schedule_thread->t_status=RUNNING;
@@ -462,7 +464,8 @@ void create_scheduler_context()
 void create_tcb_main()
 {
     tcb *tcb_main = (tcb *)malloc(sizeof(tcb));
-    tcb_main->tid = 0;
+    tcb_main->tid = tid_count;
+    tid_count++;
     tcb_main->t_status = RUNNING;// is this the right state intially?
     tcb_main->priority = 0;
     tcb_main->quantum=0;
@@ -471,20 +474,17 @@ void create_tcb_main()
 
     /*Creating the threadControlBlock(tcb)  */
     ucontext_t *uctx_main = (ucontext_t *)malloc(sizeof(ucontext_t));
-
-    // save context of main
-    if (getcontext(uctx_main) < 0)
-    {
-        perror("getcontext: create_tcb_main");
-        exit(1);
-    }
-    //uctx_current = uctx_main; // make current context point to main
-
+    // set the necessary values
     tcb_main->t_context = uctx_main;
+    current_thread_tcb=tcb_main;
+    enqueue(tcb_main);
+
 }
 
 void init_timer()
 {
+
+
     memset(&mytime, 0, sizeof(mytime));
     mytime.it_value.tv_usec = 5;
     mytime.it_value.tv_sec = 0;//start timer
@@ -501,12 +501,12 @@ void enqueue(tcb *tcb_node)
         if (ml_queue[0]->head == NULL)
         {
             ml_queue[0]->head = tcb_node;
-            ml_queue[0]->tail = tcb_node;
         }
         else
         {
-            ml_queue[0]->tail->next = tcb_node;
-            ml_queue[0]->tail = tcb_node;
+            tcb_node->next=ml_queue[0]->head;
+            ml_queue[0]->head=tcb_node;
+
         }
     }
     else
@@ -517,12 +517,11 @@ void enqueue(tcb *tcb_node)
         if (ml_queue[level]->head == NULL) //nothing in list?
         {
             ml_queue[level]->head = tcb_node;
-            ml_queue[level]->tail = tcb_node;
         }
         else
         {
-            ml_queue[level]->tail->next = tcb_node;
-            ml_queue[level]->tail = tcb_node;
+            tcb_node->next=ml_queue[level]->head;
+            ml_queue[level]->head=tcb_node;
         }
     }
 }
@@ -568,7 +567,7 @@ void printQueue(tcb *head)
 
 tcb* get_shortestJob(tcb * head){
     if(head==NULL){
-        puts("Nothing in this Queue");
+        //puts("Nothing in this Queue");
         return NULL;
     }
     tcb *curr = head;
@@ -607,7 +606,7 @@ tcb *dequeue()
                 return shortest_job;
             }
             else{
-                puts("Nothing on this Lvl");
+                //puts("Nothing on this Lvl");
             }
         }
 
@@ -637,7 +636,7 @@ void ml_queue_init()
             ml_queue[i] = (mlq *)malloc(sizeof(mlq));
             ml_queue[i]->head = NULL;
             ml_queue[i]->tail = NULL;
-            i++;
+
         }
     }
     else
@@ -698,7 +697,9 @@ int get_level(int quant)
 //}
 
 void signal_handler_func(){
-    current_thread_tcb->t_status=READY;
+    if(current_thread_tcb->t_status!=TERMINATED){
+        current_thread_tcb->t_status=READY;
+    }
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -750,12 +751,12 @@ int search_if_terminated(rpthread_t goal_tid){
 
 
 
-int delete_from_list(tcb* head,pthread_t del_tid){
-    tcb* curr=head;
+int delete_from_list(int lvl,pthread_t del_tid){
+    tcb* curr=ml_queue[lvl]->head;
     tcb* prev=NULL;
-    if(head->tid==del_tid){
-        tcb * temp=head;
-        head=head->next;
+    if(ml_queue[lvl]->head->tid==del_tid){
+        tcb * temp=ml_queue[lvl]->head;
+        ml_queue[lvl]->head=ml_queue[lvl]->head->next;
         free(temp);
         puts("deleted tcb head");
         return 1;
@@ -784,8 +785,8 @@ void delete_tcb(rpthread_t del_tid){
     else{//MLFQ
         int i;
         for ( i = 0; i < LEVELS ; i++) {
-            mlq* curr_q=ml_queue[i];
-            int success=delete_from_list(curr_q->head,del_tid);
+
+            int success=delete_from_list(i,del_tid);
             if(success){
                 return;
             }

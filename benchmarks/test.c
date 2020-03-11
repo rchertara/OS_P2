@@ -12,14 +12,18 @@
  *
  *
  */
+
+int fuck=0;
 void context_test(int param){
-    printf("context:%d \n",param);
-    //rpthread_yield();
+    printf("t:%d \n",param);
+    fuck++;
+    printf("fuck:%d \n",fuck);
+    rpthread_exit(NULL);
 }
 
 int main(int argc, char **argv) {
     int i;
-    for(i=1;i<3;i++) {
+    for(i=1;i<10000;i++) {
         void* param = i;
         pthread_t *thread = (pthread_t *) malloc(sizeof(pthread_t));
         rpthread_create(thread, NULL, &context_test, param);
