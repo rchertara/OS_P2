@@ -16,7 +16,7 @@ boolean first_time_creating=TRUE;    // variable used to check if pthread_create
 boolean sctf_flag = FALSE;
 boolean signal_handler_creation=TRUE;
 
-int tid_count=1;
+uint tid_count=1;
 ucontext_t *uctx_sched; // current thread context; scheduler context
 tcb* current_thread_tcb;//! julian you need to do something with this cap
 mlq *ml_queue[4] , *queue_waiting_to_join; // TODO allocate memory 
@@ -213,7 +213,7 @@ void rpthread_exit(void *value_ptr){
     }
     else{
         exited_threads_list *new_finished_thread = (exited_threads_list*)malloc(sizeof(exited_threads_list)); 
-        new_finished_thread-> finished_thread_tcb = current_thread_tcb;
+        new_finished_thread-> tid = current_thread_tcb->tid;
         new_finished_thread->return_values = value_ptr;
 
         if(exited_threads_head == NULL){
@@ -224,7 +224,7 @@ void rpthread_exit(void *value_ptr){
             new_finished_thread->next= exited_threads_head;
             exited_threads_head  =new_finished_thread;
         }
-        current_thread_tcb->t_status = TERMINATED;
+        current_thread_tcb ->t_status = TERMINATED;
         rpthread_yield();
     }
     
@@ -260,7 +260,7 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
         exited_threads_list * prev = NULL;
 
         while(ptr!=NULL){
-            if ( ptr->finished_thread_tcb->tid == thread ) break;
+            if ( ptr->tid == thread ) break;
             prev = ptr;
             ptr = ptr->next;
                 
@@ -381,6 +381,19 @@ static void schedule()
 
 }
 
+void doLogic(){
+
+    current_thread_tcb->t_status=READY;
+    tcb * schedule_thread= dequeue();
+    schedule_thread->quantum++;
+    schedule_thread->t_status=RUNNING;
+    getitimer(ITIMER_PROF, &mytime);
+    mytime.it_value.tv_usec=5;//restart timer
+    setitimer(ITIMER_PROF, &mytime, NULL);// is this correct?
+    current_thread_tcb=schedule_thread;
+    swapcontext(uctx_sched,schedule_thread->t_context);
+}
+
 // * UNDELETE THIS STUFF LATER !
 // /*  Preemptive SJF (STCF) scheduling algorithm */
 static void sched_stcf()
@@ -394,16 +407,7 @@ static void sched_stcf()
     //stfc enq increment time quantum put to the end of it LL
     //stcf deq find the shortest one find smallest quantum by looping thru list
     //deq stcf keep track of min quantum and return that one dont do anything else
-
-
-        tcb * schedule_thread= dequeue();
-        schedule_thread->quantum++;
-        schedule_thread->t_status=RUNNING;
-        mytime.it_value.tv_usec=5;//restart timer
-        setitimer(ITIMER_PROF, &mytime, NULL);//is this correct?
-        current_thread_tcb=schedule_thread;
-        swapcontext(uctx_sched,schedule_thread->t_context);
-
+    doLogic();
 }
 
 
@@ -414,17 +418,13 @@ static void sched_mlfq()
     // Your own implementation of MLFQ
     // (feel free to modify arguments and return types)
     //update curr priority by decrementing it
-    current_thread_tcb->t_status=READY;
-    tcb * schedule_thread= dequeue();
-    schedule_thread->quantum++;
-    schedule_thread->t_status=RUNNING;
-    mytime.it_value.tv_usec=5;//restart timer
-    setitimer(ITIMER_PROF, &mytime, NULL);// is this correct?
-    current_thread_tcb=schedule_thread;
-    swapcontext(uctx_sched,schedule_thread->t_context);
+
     // YOUR CODE HERE
+    doLogic();
 
 }
+
+
 
 // Feel free to add any other functions you need
 
@@ -700,6 +700,7 @@ void signal_handler_func(){
     if(current_thread_tcb->t_status!=TERMINATED){
         current_thread_tcb->t_status=READY;
     }
+    puts("timer went off");
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -742,7 +743,7 @@ tcb * search_for_waiting_and_join(rpthread_t goal_tid){
 int search_if_terminated(rpthread_t goal_tid){
     exited_threads_list * ptr = exited_threads_head; // point to head of termianted thread lL
     while (ptr!= NULL){
-        if(ptr->finished_thread_tcb->tid == goal_tid) return 1; // success
+        if(ptr->tid == goal_tid) return 1; // success
         ptr= ptr->next;
     }
     //failure
@@ -758,6 +759,7 @@ int delete_from_list(int lvl,pthread_t del_tid){
         tcb * temp=ml_queue[lvl]->head;
         ml_queue[lvl]->head=ml_queue[lvl]->head->next;
         free(temp);
+
         puts("deleted tcb head");
         return 1;
     }

@@ -88,7 +88,8 @@ typedef struct Queue
 
 typedef struct Terminated_Threads
 {
-	tcb *finished_thread_tcb;
+	
+	rpthread_t tid;
 	void * return_values;
 	struct Terminated_Threads *next;
 
