@@ -120,6 +120,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     // TODO REVISE
     tcb *tcb_newthread = (tcb *)malloc(sizeof(tcb));
     tcb_newthread->tid = tid_count;
+    *thread =   tcb_newthread->tid;
     tid_count++;
     tcb_newthread->wait_on=0;
     tcb_newthread->t_status = READY;
@@ -208,6 +209,17 @@ void rpthread_exit(void *value_ptr){
 
 
     if(value_ptr == NULL){
+        exited_threads_list *new_finished_thread = (exited_threads_list*)malloc(sizeof(exited_threads_list));
+        new_finished_thread-> tid = current_thread_tcb->tid;
+        new_finished_thread->return_values = value_ptr;
+        if(exited_threads_head == NULL){
+            exited_threads_head = new_finished_thread;
+            new_finished_thread->next=NULL;
+        }
+        else{
+            new_finished_thread->next= exited_threads_head;
+            exited_threads_head  =new_finished_thread;
+        }
         ptr->t_status = TERMINATED;
         rpthread_yield();
     }
@@ -247,6 +259,7 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
 
     tcb *ptr_current = current_thread_tcb;
     // ? should i be searching for thread in main queue or termianted queue ????
+    printf("thread = %d\n", thread);
     int found = search_if_terminated(thread);// 0: not found , 1 found
     // int found = search_for_tid(thread); // this will search the queue
     //THREAD HAS BEEN TERMINATED (i.e. found in terminated List )
@@ -254,7 +267,7 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
 
     //! this all works because we assume exit called before join
     //>  0: not found , 1 found
-    if(found == 1){
+    if(found == 1 && value_ptr != NULL){
         // ! FIGURE OUT DATA STRUCTURE FOR RETURN VALUES 
         exited_threads_list * ptr = exited_threads_head;
         exited_threads_list * prev = NULL;
@@ -271,7 +284,7 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
         /* Handling the case of FIRST ELEMENT being joined and  ONLY ELEMENT*/
         if(prev == NULL && ptr->next ==NULL){
             *value_ptr = ptr->return_values;
-            free(ptr); 
+//            free(ptr);
             return 0;
         }
         /* Handling the case of FIRST ELEMENT being joined and MORE ELEMENTs in LIST*/
@@ -279,14 +292,14 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
             *value_ptr = ptr->return_values;
             exited_threads_head = exited_threads_head->next; 
             ptr->next = NULL; 
-            free(ptr); 
+//            free(ptr);
             return 1;
         }
         /* FINALLY: Handle the case where its some arbitrary NODE in the list*/
         *value_ptr = ptr->return_values;
         prev->next = ptr->next; 
         ptr->next = NULL; 
-        free(ptr); 
+//        free(ptr);
         return 2;
 
     }
@@ -700,7 +713,7 @@ void signal_handler_func(){
     if(current_thread_tcb->t_status!=TERMINATED){
         current_thread_tcb->t_status=READY;
     }
-    puts("timer went off");
+//    puts("timer went off");
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -741,7 +754,7 @@ tcb * search_for_waiting_and_join(rpthread_t goal_tid){
 1: FOUnd
 */
 int search_if_terminated(rpthread_t goal_tid){
-    exited_threads_list * ptr = exited_threads_head; // point to head of termianted thread lL
+    exited_threads_list * ptr = exited_threads_head; // point to head of terminated thread LL
     while (ptr!= NULL){
         if(ptr->tid == goal_tid) return 1; // success
         ptr= ptr->next;
@@ -758,7 +771,7 @@ int delete_from_list(int lvl,pthread_t del_tid){
     if(ml_queue[lvl]->head->tid==del_tid){
         tcb * temp=ml_queue[lvl]->head;
         ml_queue[lvl]->head=ml_queue[lvl]->head->next;
-        free(temp);
+//        free(temp);
 
         puts("deleted tcb head");
         return 1;
@@ -766,7 +779,7 @@ int delete_from_list(int lvl,pthread_t del_tid){
     while(curr!=NULL){
         if(curr->tid==del_tid){
             prev->next=curr->next;
-            free(curr);//deallocate here i guess?
+//            free(curr);//deallocate here i guess?
             puts("deleted tcb");
             return 1;
         }

@@ -10,7 +10,7 @@
 #define _GNU_SOURCE
 
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_RTHREAD macro */
-#define USE_RTHREAD 1
+//#define USE_RTHREAD 1
 #define STACK_SIZE SIGSTKSZ
 #define LEVELS 4
 #define L1 1000
@@ -163,3 +163,4 @@ void terminated_threads_init();
 #endif
 
 #endif
+//
