@@ -65,7 +65,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
         first_time_creating = FALSE; // make sure never run again
 
         sctf_flag=TRUE; //TODO DELETE THIS SHIT
-
+        printf("value of sctf_flag = %d\n", sctf_flag);
         ml_queue_init();
 
         //since first time running, we can assume called from main
@@ -201,8 +201,9 @@ void rpthread_exit(void *value_ptr){
     if(found_waiting_thread != NULL){
         found_waiting_thread->t_status = READY; // THIS THREAD READY TO BE RUN AGAIN
         found_waiting_thread->wait_on = 0; // ? IDK IF WE NEED THIS
-        rpthread_yield();
+//        rpthread_yield();
     }
+
 
 
     if(value_ptr == NULL){
@@ -256,7 +257,8 @@ int rpthread_join(rpthread_t thread, void **value_ptr)
 
     tcb *ptr_current = current_thread_tcb;
     // ? should i be searching for thread in main queue or termianted queue ????
-    printf("thread = %d\n", thread);
+//    printf("thread = %d\n", thread);
+    fflush(stdin);
     int found = search_if_terminated(thread);// 0: not found , 1 found
     // int found = search_for_tid(thread); // this will search the queue
     //THREAD HAS BEEN TERMINATED (i.e. found in terminated List )
