@@ -64,7 +64,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
 
         first_time_creating = FALSE; // make sure never run again
 
-        sctf_flag=TRUE; //TODO DELETE THIS SHIT
+        //TODO DELETE THIS SHIT
         printf("value of sctf_flag = %d\n", sctf_flag);
         ml_queue_init();
 

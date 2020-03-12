@@ -33,13 +33,13 @@ int main(int argc, char **argv) {
     counter = (int*)malloc(sizeof(int));
     int zz = 5;
     counter = &zz;
-
+    int j=0;
     for (i = 0; i < thread_num; i++) {
 
         pthread_create(&thread[i], NULL, &context_test, &counter[0]);
         printf("thread[%d] = %d\n", i,thread[i]);
     }
-    for (int j = 0; j < thread_num; j++) {
+    for (j = 0; j < thread_num; j++) {
 
         rpthread_join(thread[j],NULL);
 //        printf("thread[%d] = %d\n", j,thread[j]);
