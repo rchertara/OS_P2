@@ -711,7 +711,7 @@ int get_level(int quant)
 
 void signal_handler_func(){
 
-    puts("timer went off");
+//    puts("timer went off");
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -772,13 +772,13 @@ int delete_from_list(int lvl,rpthread_t del_tid){// this is trash function
     }
     if(ml_queue[lvl]->head->tid==del_tid){
         ml_queue[lvl]->head=ml_queue[lvl]->head->next;
-        puts("deleted tcb head");
+//        puts("deleted tcb head");
         return 1;
     }
     while(curr!=NULL){
         if(curr->tid==del_tid){
             prev->next=curr->next;
-            puts("deleted tcb");
+//            puts("deleted tcb");
             return 1;
         }
         prev=curr;
