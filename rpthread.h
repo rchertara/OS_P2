@@ -10,13 +10,14 @@
 #define _GNU_SOURCE
 
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_RTHREAD macro */
-//#define USE_RTHREAD 1
+#define USE_RTHREAD 1
+
 #define STACK_SIZE SIGSTKSZ
 #define LEVELS 4
-#define L1 1000
-#define L2 2000
-#define L3 3000
-#define L4 4000
+#define L1 0
+#define L2 1
+#define L3 2
+#define L4 3
 
 /* include lib header files that you need here: */
 #include <unistd.h>
@@ -39,7 +40,6 @@ typedef enum
 	which are threads that are good to be swapped in to execute
 	*/
 	READY,
-	SCHEDULED,
 	RUNNING,
 	BLOCKED,
 	TERMINATED,
@@ -146,9 +146,12 @@ static void sched_stcf();
 
 static void sched_mlfq();
 
+int delete_from_list(int lvl,rpthread_t del_tid);
 void delete_tcb(rpthread_t del_tid);
 int search_if_terminated(rpthread_t goal_tid);
 void terminated_threads_init();
+
+
 
 #ifdef USE_RTHREAD
 #define pthread_t rpthread_t

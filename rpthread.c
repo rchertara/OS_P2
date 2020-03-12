@@ -9,6 +9,7 @@
 
 /* INITAILIZE ALL YOUR VARIABLES HERE*/
 //main has tcb, then current thing we should make it a tcb, scheduler does not need a tcb just a global var
+//main has tcb, then current thing we should make it a tcb, scheduler does not need a tcb just a global var
 // tcb *head , *tail; //  > might not be able to create global head and tail
 // .*head = *tail = NULL;
 
@@ -48,9 +49,6 @@ void set_currentThread_terminated(){
 }
 
 
-
-
-
 int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
                     void *(*function)(void *), void *arg)
 {
@@ -59,12 +57,14 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     if (first_time_creating)
     {
         #ifndef MLFQ
-            sctf_flag=FALSE;
-        #else
             sctf_flag=TRUE;
+        #else
+            sctf_flag=FALSE;
         #endif
 
         first_time_creating = FALSE; // make sure never run again
+
+        sctf_flag=TRUE; //TODO DELETE THIS SHIT
 
         ml_queue_init();
 
@@ -120,7 +120,7 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     // TODO REVISE
     tcb *tcb_newthread = (tcb *)malloc(sizeof(tcb));
     tcb_newthread->tid = tid_count;
-    *thread =   tcb_newthread->tid;
+    *thread = tcb_newthread->tid;
     tid_count++;
     tcb_newthread->wait_on=0;
     tcb_newthread->t_status = READY;
@@ -155,9 +155,6 @@ int rpthread_yield()
 	*/
     //update TCB here
     //MAKE SURE NOT WORKING WITH EMPTY LL
-    if(current_thread_tcb->t_status!=TERMINATED){// seems sus
-        current_thread_tcb->t_status=READY;
-    }
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -390,16 +387,16 @@ static void schedule()
         }
     }
 
-
-
 }
 
 void doLogic(){
-
-    current_thread_tcb->t_status=READY;
-    tcb * schedule_thread= dequeue();
+    if(current_thread_tcb->t_status!=TERMINATED && current_thread_tcb->t_status!=WAITING){
+        current_thread_tcb->t_status=READY;
+    }
+    tcb * schedule_thread= dequeue(); //get next thread to run take out from list
     schedule_thread->quantum++;
     schedule_thread->t_status=RUNNING;
+    enqueue(schedule_thread);//now that i incremented quantum i want to place it again
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec=5;//restart timer
     setitimer(ITIMER_PROF, &mytime, NULL);// is this correct?
@@ -481,7 +478,7 @@ void create_tcb_main()
     tid_count++;
     tcb_main->t_status = RUNNING;// is this the right state intially?
     tcb_main->priority = 0;
-    tcb_main->quantum=0;
+    tcb_main->quantum=1;
     tcb_main->next=NULL;
     tcb_main->wait_on=0;// is this ok?
 
@@ -539,17 +536,17 @@ void enqueue(tcb *tcb_node)
     }
 }
 
-tcb *tcb_init(ucontext_t *cctx, rpthread_t id)
-{
-    tcb *newNode = (tcb *)malloc(sizeof(tcb));
-    newNode->tid = id;
-    //NEED TO SET STATUS
-    newNode->t_context = cctx;
-    newNode->priority = 0; //default val
-    //need stack?
-    newNode->next = NULL;
-    return newNode;
-}
+//tcb *tcb_init(ucontext_t *cctx, rpthread_t id)
+//{
+//    tcb *newNode = (tcb *)malloc(sizeof(tcb));
+//    newNode->tid = id;
+//    //NEED TO SET STATUS
+//    newNode->t_context = cctx;
+//    newNode->priority = 0; //default val
+//    //need stack?
+//    newNode->next = NULL;
+//    return newNode;
+//}
 // YOUR CODE HERE
 
 int getQueueSize(tcb *head)
@@ -587,12 +584,13 @@ tcb* get_shortestJob(tcb * head){
     tcb *shortest_job=NULL;
     int min_quantum=INT_MAX;
 
-    while(curr!=NULL){
+    while(curr!=NULL){//infinite here
         if( curr->quantum < min_quantum  && curr->t_status==READY){
             min_quantum=curr->quantum;
             shortest_job=curr;
         }
         curr=curr->next;
+
     }
     return shortest_job;
 }
@@ -604,6 +602,7 @@ tcb *dequeue()
     if (sctf_flag)
     {
         tcb * shortest_job=get_shortestJob(ml_queue[0]->head);
+        delete_from_list(0,shortest_job->tid);//remove from list will enqueue again
         //do i have to check its state for both algos to make sure i can use it???
         return shortest_job;
     }
@@ -616,6 +615,7 @@ tcb *dequeue()
             mlq *curr_q = ml_queue[i];
             tcb * shortest_job=get_shortestJob(curr_q->head);
             if(shortest_job!=NULL){
+                delete_from_list(i,shortest_job->tid);//remove from this level i
                 return shortest_job;
             }
             else{
@@ -710,10 +710,8 @@ int get_level(int quant)
 //}
 
 void signal_handler_func(){
-    if(current_thread_tcb->t_status!=TERMINATED){
-        current_thread_tcb->t_status=READY;
-    }
-//    puts("timer went off");
+
+    puts("timer went off");
     getitimer(ITIMER_PROF, &mytime);
     mytime.it_value.tv_usec = 0; // stop the timer
     setitimer(ITIMER_PROF, &mytime, NULL);
@@ -765,21 +763,21 @@ int search_if_terminated(rpthread_t goal_tid){
 
 
 
-int delete_from_list(int lvl,pthread_t del_tid){
+int delete_from_list(int lvl,rpthread_t del_tid){// this is trash function
     tcb* curr=ml_queue[lvl]->head;
     tcb* prev=NULL;
-    if(ml_queue[lvl]->head->tid==del_tid){
-        tcb * temp=ml_queue[lvl]->head;
-        ml_queue[lvl]->head=ml_queue[lvl]->head->next;
-//        free(temp);
 
+    if(curr==NULL){
+        return -1;
+    }
+    if(ml_queue[lvl]->head->tid==del_tid){
+        ml_queue[lvl]->head=ml_queue[lvl]->head->next;
         puts("deleted tcb head");
         return 1;
     }
     while(curr!=NULL){
         if(curr->tid==del_tid){
             prev->next=curr->next;
-//            free(curr);//deallocate here i guess?
             puts("deleted tcb");
             return 1;
         }
@@ -793,14 +791,13 @@ int delete_from_list(int lvl,pthread_t del_tid){
 
 void delete_tcb(rpthread_t del_tid){
     if(sctf_flag){
-        delete_from_list(ml_queue[0]->head,del_tid);
+        delete_from_list(0,del_tid);
         return;
     }
 
     else{//MLFQ
         int i;
         for ( i = 0; i < LEVELS ; i++) {
-
             int success=delete_from_list(i,del_tid);
             if(success){
                 return;
