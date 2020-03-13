@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "../rpthread.c"
+#include "../rpthread.h"
 
 /* A scratch program template on which to call and
  * test rpthread library functions as you implement

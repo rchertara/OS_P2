@@ -1,8 +1,9 @@
 // File:	rpthread_t.h
 
-// List all group member's name:
-// username of iLab:
-// iLab Server:
+// List all group member's name: Julian Seepersaud, Rahil Chertara
+// username of iLab:kill
+// iLab Server:kill.cs.rutgers.edu
+
 
 #ifndef RTHREAD_T_H
 #define RTHREAD_T_H
@@ -166,4 +167,3 @@ void terminated_threads_init();
 #endif
 
 #endif
-//

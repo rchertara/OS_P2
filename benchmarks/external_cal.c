@@ -5,7 +5,7 @@
 #include <signal.h>
 
 #include <pthread.h>
-#include "../rpthread.c"
+#include "../rpthread.h"
 
 #define DEFAULT_THREAD_NUM 2
 #define RAM_SIZE 160

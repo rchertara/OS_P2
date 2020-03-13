@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "../rpthread.c"
+#include "../rpthread.h"
 
 #define DEFAULT_THREAD_NUM 2
 #define VECTOR_SIZE 3000000

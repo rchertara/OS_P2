@@ -1,8 +1,8 @@
 // File:	rpthread.c
 
-// List all group member's name:
-// username of iLab:
-// iLab Server:
+// List all group member's name: Julian Seepersaud, Rahil Chertara
+// username of iLab:kill
+// iLab Server:kill.cs.rutgers.edu
 
 #include <limits.h>
 #include "rpthread.h"
@@ -44,6 +44,12 @@ create desired thread
 //don't set the context return function to pthread exit
 */
 
+//int main(int argc, char *argv[])
+//{
+//
+//}
+
+
 void set_currentThread_terminated(){
     current_thread_tcb->t_status=TERMINATED;
 }
@@ -56,16 +62,18 @@ int rpthread_create(rpthread_t *thread, pthread_attr_t *attr,
     // ! REMEMBER TO ADD CURRENT TO QUEUE FOR THE FIRST TIME CAUSE IT CONTAINS MAIN
     if (first_time_creating)
     {
-        #ifndef MLFQ
+
+            #ifndef MLFQ
             sctf_flag=TRUE;
-        #else
+            #else
             sctf_flag=FALSE;
-        #endif
+            #endif
 
+    printf("value of sctf_flag = %d\n", sctf_flag);
         first_time_creating = FALSE; // make sure never run again
-
+//        printf("%d",argc);
         //TODO DELETE THIS SHIT
-        printf("value of sctf_flag = %d\n", sctf_flag);
+
         ml_queue_init();
 
         //since first time running, we can assume called from main
