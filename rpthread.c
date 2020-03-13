@@ -383,7 +383,7 @@ static void schedule()
     while (1) //update tcb enq and deq you need while loop !!!
     {
         // is the while loop calling the same sub rountine schedule func over and over?
-
+	fflush(stdin);
         if (sctf_flag)
         {
             sched_stcf();
@@ -600,6 +600,7 @@ tcb* get_shortestJob(tcb * head){
             shortest_job=curr;
         }
         curr=curr->next;
+	fflush(stdin);
 
     }
     return shortest_job;
@@ -783,11 +784,13 @@ int delete_from_list(int lvl,rpthread_t del_tid){// this is trash function
     if(ml_queue[lvl]->head->tid==del_tid){
         ml_queue[lvl]->head=ml_queue[lvl]->head->next;
 //        puts("deleted tcb head");
-        return 1;
+        curr->next=NULL;
+	return 1;
     }
     while(curr!=NULL){
         if(curr->tid==del_tid){
             prev->next=curr->next;
+	    curr->next=NULL;
 //            puts("deleted tcb");
             return 1;
         }
